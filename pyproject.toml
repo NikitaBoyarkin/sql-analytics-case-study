@@ -1,0 +1,13 @@
+[project]
+name = "sql-analytics-case-study"
+version = "0.1.0"
+description = "Take-home style SQL analytics case study: funnel, retention, LTV, attribution, gaps-and-islands. Synthetic data, DuckDB engine."
+requires-python = ">=3.10"
+dependencies = [
+    "duckdb>=0.10",
+    "pandas>=2.0",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]

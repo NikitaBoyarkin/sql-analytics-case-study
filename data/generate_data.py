@@ -1,0 +1,168 @@
+"""Deterministic synthetic data generator for the SQL analytics case study.
+
+Builds 4 fact tables (users, events, orders, subscriptions) over ~6 months,
+writes CSVs + a DuckDB file (data/analytics.duckdb) per data/schema.sql.
+
+Reproducible: seed=42. Run:
+    uv run python data/generate_data.py
+"""
+from __future__ import annotations
+
+import pathlib
+
+import duckdb
+import numpy as np
+import pandas as pd
+
+HERE = pathlib.Path(__file__).parent
+SCHEMA = (HERE / "schema.sql").read_text()
+
+SEED = 42
+N_USERS = 20_000
+N_SESSIONS = 80_000
+START = pd.Timestamp("2024-01-01")
+END = pd.Timestamp("2024-06-30")
+DAYS = (END - START).days + 1
+
+CHANNELS = ["organic", "paid_search", "social", "referral", "email"]
+CHANNEL_PROB = [0.30, 0.25, 0.20, 0.15, 0.10]
+# higher = better long-term retention (used to weight session assignment)
+CHANNEL_RETAIN = {"organic": 0.90, "paid_search": 0.60, "social": 0.70,
+                  "referral": 0.95, "email": 0.80}
+COUNTRIES = ["RU", "UA", "KZ", "BY", "Other"]
+COUNTRY_PROB = [0.55, 0.12, 0.12, 0.08, 0.13]
+DEVICES = ["ios", "android", "web"]
+DEVICE_PROB = [0.40, 0.40, 0.20]
+
+# Funnel conditional probabilities (step i only if step i-1 happened)
+P_VIEW, P_CART, P_CHECKOUT, P_PURCHASE = 0.82, 0.45, 0.22, 0.13
+
+PRODUCT_CATEGORIES = ["electronics", "clothing", "home", "books", "beauty", "sports"]
+
+
+def build_users(rng: np.random.Generator) -> pd.DataFrame:
+    uids = np.arange(1, N_USERS + 1)
+    signup = START + pd.to_timedelta(rng.integers(0, DAYS, N_USERS), unit="D")
+    channel = rng.choice(CHANNELS, N_USERS, p=CHANNEL_PROB)
+    country = rng.choice(COUNTRIES, N_USERS, p=COUNTRY_PROB)
+    device = rng.choice(DEVICES, N_USERS, p=DEVICE_PROB)
+    # A/B assignment 50/50, independent of everything else
+    ab = np.where(rng.random(N_USERS) < 0.5, "control", "treatment")
+    return pd.DataFrame({
+        "user_id": uids,
+        "signup_date": signup.normalize().date,
+        "channel": channel,
+        "country": country,
+        "device": device,
+        "ab_variant": ab,
+    })
+
+
+def build_events(rng: np.random.Generator, users: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Return (events, orders, subscriptions)."""
+    weights = np.array([CHANNEL_RETAIN[c] for c in users["channel"]], dtype=float)
+    weights /= weights.sum()
+    sess_user = rng.choice(users["user_id"].values, N_SESSIONS, p=weights)
+
+    su = users.set_index("user_id").loc[sess_user, "signup_date"].values
+    su_ts = pd.to_datetime(pd.Series(su))
+    max_offset = (END - su_ts).dt.days.clip(lower=1).values
+    # Geometric: most sessions early, long tail — realistic engagement decay.
+    offsets = np.minimum(rng.geometric(0.05, N_SESSIONS), max_offset)
+    sess_date = np.minimum(su_ts + pd.to_timedelta(offsets, unit="D"), END)
+    hour = rng.integers(6, 24, N_SESSIONS)
+    minute = rng.integers(0, 60, N_SESSIONS)
+    sess_ts = sess_date + pd.to_timedelta(hour * 60 + minute, unit="m")
+
+    session_id = np.arange(1, N_SESSIONS + 1)
+
+    # Funnel masks (each conditional on previous step).
+    view = rng.random(N_SESSIONS) < P_VIEW
+    cart = view & (rng.random(N_SESSIONS) < P_CART)
+    checkout = cart & (rng.random(N_SESSIONS) < P_CHECKOUT)
+    purchase = checkout & (rng.random(N_SESSIONS) < P_PURCHASE)
+
+    frames = []
+    step_lag = {"app_open": 0, "view_item": 5, "add_to_cart": 15,
+                "checkout": 40, "purchase": 90}
+    masks = {"app_open": np.ones(N_SESSIONS, dtype=bool), "view_item": view,
+             "add_to_cart": cart, "checkout": checkout, "purchase": purchase}
+    for name, mask in masks.items():
+        if not mask.any():
+            continue
+        frames.append(pd.DataFrame({
+            "user_id": sess_user[mask],
+            "session_id": session_id[mask],
+            "event_time": sess_ts[mask] + pd.to_timedelta(step_lag[name], unit="s"),
+            "event_name": name,
+        }))
+    events = pd.concat(frames, ignore_index=True)
+    events.insert(0, "event_id", np.arange(1, len(events) + 1))
+
+    # Orders from purchase events.
+    pur = events[events["event_name"] == "purchase"].copy()
+    n_p = len(pur)
+    amount = np.round(np.exp(rng.normal(3.2, 0.5, n_p)), 2)  # log-normal, ~$25 avg
+    orders = pd.DataFrame({
+        "order_id": np.arange(1, n_p + 1),
+        "user_id": pur["user_id"].values,
+        "order_ts": pur["event_time"].values,
+        "amount": amount,
+        "product_category": rng.choice(PRODUCT_CATEGORIES, n_p),
+    })
+
+    # Subscriptions: 30% of purchasing users convert, shortly after first purchase.
+    purch_users = pur["user_id"].unique()
+    n_sub = int(len(purch_users) * 0.30)
+    sub_users = rng.choice(purch_users, n_sub, replace=False)
+    plan = rng.choice(["monthly", "annual"], n_sub, p=[0.70, 0.30])
+    sub_amount = np.where(plan == "monthly", 9.99, 89.99)
+    first_order = (orders.groupby("user_id")["order_ts"].min()
+                   .reindex(sub_users).values)
+    started = pd.to_datetime(first_order) + pd.to_timedelta(
+        rng.integers(0, 7 * 24 * 60, n_sub), unit="m")
+    subscriptions = pd.DataFrame({
+        "sub_id": np.arange(1, n_sub + 1),
+        "user_id": sub_users,
+        "started_at": started,
+        "plan": plan,
+        "amount": sub_amount,
+    })
+    return events, orders, subscriptions
+
+
+def write_outputs(users, events, orders, subscriptions) -> None:
+    HERE.joinpath("users.csv").write_text("")
+    for name, df in [("users", users), ("events", events),
+                    ("orders", orders), ("subscriptions", subscriptions)]:
+        df.to_csv(HERE / f"{name}.csv", index=False)
+
+    db = HERE / "analytics.duckdb"
+    if db.exists():
+        db.unlink()
+    con = duckdb.connect(str(db))
+    con.execute(SCHEMA)
+    con.register("_users", users)
+    con.register("_events", events)
+    con.register("_orders", orders)
+    con.register("_subs", subscriptions)
+    con.execute("INSERT INTO users SELECT * FROM _users")
+    con.execute("INSERT INTO events SELECT * FROM _events")
+    con.execute("INSERT INTO orders SELECT * FROM _orders")
+    con.execute("INSERT INTO subscriptions SELECT * FROM _subs")
+    for tbl in ("users", "events", "orders", "subscriptions"):
+        print(f"  {tbl}: {con.execute(f'SELECT COUNT(*) FROM {tbl}').fetchone()[0]:,} rows")
+    con.close()
+
+
+def main() -> None:
+    rng = np.random.default_rng(SEED)
+    print(f"Generating data (seed={SEED}, users={N_USERS}, sessions={N_SESSIONS})...")
+    users = build_users(rng)
+    events, orders, subscriptions = build_events(rng, users)
+    write_outputs(users, events, orders, subscriptions)
+    print(f"Done. CSVs + analytics.duckdb in {HERE}")
+
+
+if __name__ == "__main__":
+    main()
