@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install Python
+        run: uv python install 3.12
+      - name: Sync dependencies
+        run: uv sync --extra dev
+      - name: Generate data
+        run: uv run python data/generate_data.py
+      - name: Run tests
+        run: uv run --extra dev pytest -q
+      - name: Render report
+        run: uv run python scripts/report.py
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: analytics-report
+          path: reports/index.html

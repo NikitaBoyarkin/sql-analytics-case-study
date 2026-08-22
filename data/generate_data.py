@@ -6,6 +6,7 @@ writes CSVs + a DuckDB file (data/analytics.duckdb) per data/schema.sql.
 Reproducible: seed=42. Run:
     uv run python data/generate_data.py
 """
+
 from __future__ import annotations
 
 import pathlib
@@ -27,8 +28,13 @@ DAYS = (END - START).days + 1
 CHANNELS = ["organic", "paid_search", "social", "referral", "email"]
 CHANNEL_PROB = [0.30, 0.25, 0.20, 0.15, 0.10]
 # higher = better long-term retention (used to weight session assignment)
-CHANNEL_RETAIN = {"organic": 0.90, "paid_search": 0.60, "social": 0.70,
-                  "referral": 0.95, "email": 0.80}
+CHANNEL_RETAIN = {
+    "organic": 0.90,
+    "paid_search": 0.60,
+    "social": 0.70,
+    "referral": 0.95,
+    "email": 0.80,
+}
 COUNTRIES = ["RU", "UA", "KZ", "BY", "Other"]
 COUNTRY_PROB = [0.55, 0.12, 0.12, 0.08, 0.13]
 DEVICES = ["ios", "android", "web"]
@@ -36,6 +42,9 @@ DEVICE_PROB = [0.40, 0.40, 0.20]
 
 # Funnel conditional probabilities (step i only if step i-1 happened)
 P_VIEW, P_CART, P_CHECKOUT, P_PURCHASE = 0.82, 0.45, 0.22, 0.13
+# Embedded A/B effect (see case 09): treatment variant is 1.25x more likely
+# to complete checkout -> purchase. Control stays at P_PURCHASE.
+A_B_PURCHASE_LIFT = 1.25
 
 PRODUCT_CATEGORIES = ["electronics", "clothing", "home", "books", "beauty", "sports"]
 
@@ -46,30 +55,50 @@ def build_users(rng: np.random.Generator) -> pd.DataFrame:
     channel = rng.choice(CHANNELS, N_USERS, p=CHANNEL_PROB)
     country = rng.choice(COUNTRIES, N_USERS, p=COUNTRY_PROB)
     device = rng.choice(DEVICES, N_USERS, p=DEVICE_PROB)
-    # A/B assignment 50/50, independent of everything else
+    # A/B assignment 50/50, independent of user attributes. The variant itself
+    # carries an embedded treatment effect (see A_B_PURCHASE_LIFT), so case 09
+    # can detect a real, interpretable signal.
     ab = np.where(rng.random(N_USERS) < 0.5, "control", "treatment")
-    return pd.DataFrame({
-        "user_id": uids,
-        "signup_date": signup.normalize().date,
-        "channel": channel,
-        "country": country,
-        "device": device,
-        "ab_variant": ab,
-    })
+    return pd.DataFrame(
+        {
+            "user_id": uids,
+            "signup_date": signup.normalize().date,
+            "channel": channel,
+            "country": country,
+            "device": device,
+            "ab_variant": ab,
+        }
+    )
 
 
-def build_events(rng: np.random.Generator, users: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def build_events(
+    rng: np.random.Generator, users: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Return (events, orders, subscriptions)."""
     weights = np.array([CHANNEL_RETAIN[c] for c in users["channel"]], dtype=float)
     weights /= weights.sum()
-    sess_user = rng.choice(users["user_id"].values, N_SESSIONS, p=weights)
+    uids = users["user_id"].values
+    su = pd.to_datetime(users.set_index("user_id")["signup_date"])
 
-    su = users.set_index("user_id").loc[sess_user, "signup_date"].values
-    su_ts = pd.to_datetime(pd.Series(su))
-    max_offset = (END - su_ts).dt.days.clip(lower=1).values
-    # Geometric: most sessions early, long tail — realistic engagement decay.
-    offsets = np.minimum(rng.geometric(0.05, N_SESSIONS), max_offset)
-    sess_date = np.minimum(su_ts + pd.to_timedelta(offsets, unit="D"), END)
+    # Session dates follow a geometric decay from signup, but a session that
+    # would fall after the observation window is NOT observed (right truncation).
+    # Rejection-sample until we have exactly N_SESSIONS in-window sessions, so
+    # no artificial pile-up is clamped onto the last calendar day.
+    sess_user: list[int] = []
+    sess_offsets: list[int] = []
+    while len(sess_user) < N_SESSIONS:
+        batch = max(N_SESSIONS - len(sess_user), 1000)
+        cand = rng.choice(uids, batch, p=weights)
+        cand_su = su.loc[cand].values
+        cand_off = rng.geometric(0.05, batch).tolist()
+        in_window = (cand_su + pd.to_timedelta(cand_off, unit="D")) <= END
+        sess_user.extend(cand[in_window].tolist())
+        sess_offsets.extend(np.array(cand_off)[in_window].tolist())
+    sess_user = np.array(sess_user[:N_SESSIONS], dtype=np.int64)
+    sess_offsets = np.array(sess_offsets[:N_SESSIONS])
+
+    su_ts = su.loc[sess_user].values
+    sess_date = su_ts + pd.to_timedelta(sess_offsets, unit="D")
     hour = rng.integers(6, 24, N_SESSIONS)
     minute = rng.integers(0, 60, N_SESSIONS)
     sess_ts = sess_date + pd.to_timedelta(hour * 60 + minute, unit="m")
@@ -80,22 +109,42 @@ def build_events(rng: np.random.Generator, users: pd.DataFrame) -> tuple[pd.Data
     view = rng.random(N_SESSIONS) < P_VIEW
     cart = view & (rng.random(N_SESSIONS) < P_CART)
     checkout = cart & (rng.random(N_SESSIONS) < P_CHECKOUT)
-    purchase = checkout & (rng.random(N_SESSIONS) < P_PURCHASE)
+    # A/B effect: treatment sessions convert checkout->purchase at a higher rate.
+    sess_variant = users.set_index("user_id").loc[sess_user, "ab_variant"].values
+    p_buy = np.where(
+        sess_variant == "treatment", P_PURCHASE * A_B_PURCHASE_LIFT, P_PURCHASE
+    )
+    purchase = checkout & (rng.random(N_SESSIONS) < p_buy)
 
     frames = []
-    step_lag = {"app_open": 0, "view_item": 5, "add_to_cart": 15,
-                "checkout": 40, "purchase": 90}
-    masks = {"app_open": np.ones(N_SESSIONS, dtype=bool), "view_item": view,
-             "add_to_cart": cart, "checkout": checkout, "purchase": purchase}
+    step_lag = {
+        "app_open": 0,
+        "view_item": 5,
+        "add_to_cart": 15,
+        "checkout": 40,
+        "purchase": 90,
+    }
+    masks = {
+        "app_open": np.ones(N_SESSIONS, dtype=bool),
+        "view_item": view,
+        "add_to_cart": cart,
+        "checkout": checkout,
+        "purchase": purchase,
+    }
     for name, mask in masks.items():
         if not mask.any():
             continue
-        frames.append(pd.DataFrame({
-            "user_id": sess_user[mask],
-            "session_id": session_id[mask],
-            "event_time": sess_ts[mask] + pd.to_timedelta(step_lag[name], unit="s"),
-            "event_name": name,
-        }))
+        frames.append(
+            pd.DataFrame(
+                {
+                    "user_id": sess_user[mask],
+                    "session_id": session_id[mask],
+                    "event_time": sess_ts[mask]
+                    + pd.to_timedelta(step_lag[name], unit="s"),
+                    "event_name": name,
+                }
+            )
+        )
     events = pd.concat(frames, ignore_index=True)
     events.insert(0, "event_id", np.arange(1, len(events) + 1))
 
@@ -103,13 +152,15 @@ def build_events(rng: np.random.Generator, users: pd.DataFrame) -> tuple[pd.Data
     pur = events[events["event_name"] == "purchase"].copy()
     n_p = len(pur)
     amount = np.round(np.exp(rng.normal(3.2, 0.5, n_p)), 2)  # log-normal, ~$25 avg
-    orders = pd.DataFrame({
-        "order_id": np.arange(1, n_p + 1),
-        "user_id": pur["user_id"].values,
-        "order_ts": pur["event_time"].values,
-        "amount": amount,
-        "product_category": rng.choice(PRODUCT_CATEGORIES, n_p),
-    })
+    orders = pd.DataFrame(
+        {
+            "order_id": np.arange(1, n_p + 1),
+            "user_id": pur["user_id"].values,
+            "order_ts": pur["event_time"].values,
+            "amount": amount,
+            "product_category": rng.choice(PRODUCT_CATEGORIES, n_p),
+        }
+    )
 
     # Subscriptions: 30% of purchasing users convert, shortly after first purchase.
     purch_users = pur["user_id"].unique()
@@ -117,24 +168,31 @@ def build_events(rng: np.random.Generator, users: pd.DataFrame) -> tuple[pd.Data
     sub_users = rng.choice(purch_users, n_sub, replace=False)
     plan = rng.choice(["monthly", "annual"], n_sub, p=[0.70, 0.30])
     sub_amount = np.where(plan == "monthly", 9.99, 89.99)
-    first_order = (orders.groupby("user_id")["order_ts"].min()
-                   .reindex(sub_users).values)
+    first_order = orders.groupby("user_id")["order_ts"].min().reindex(sub_users).values
     started = pd.to_datetime(first_order) + pd.to_timedelta(
-        rng.integers(0, 7 * 24 * 60, n_sub), unit="m")
-    subscriptions = pd.DataFrame({
-        "sub_id": np.arange(1, n_sub + 1),
-        "user_id": sub_users,
-        "started_at": started,
-        "plan": plan,
-        "amount": sub_amount,
-    })
+        rng.integers(0, 7 * 24 * 60, n_sub), unit="m"
+    )
+    started = np.minimum(started, END)  # subs cannot start after the window
+    subscriptions = pd.DataFrame(
+        {
+            "sub_id": np.arange(1, n_sub + 1),
+            "user_id": sub_users,
+            "started_at": started,
+            "plan": plan,
+            "amount": sub_amount,
+        }
+    )
     return events, orders, subscriptions
 
 
 def write_outputs(users, events, orders, subscriptions) -> None:
     HERE.joinpath("users.csv").write_text("")
-    for name, df in [("users", users), ("events", events),
-                    ("orders", orders), ("subscriptions", subscriptions)]:
+    for name, df in [
+        ("users", users),
+        ("events", events),
+        ("orders", orders),
+        ("subscriptions", subscriptions),
+    ]:
         df.to_csv(HERE / f"{name}.csv", index=False)
 
     db = HERE / "analytics.duckdb"
@@ -151,7 +209,9 @@ def write_outputs(users, events, orders, subscriptions) -> None:
     con.execute("INSERT INTO orders SELECT * FROM _orders")
     con.execute("INSERT INTO subscriptions SELECT * FROM _subs")
     for tbl in ("users", "events", "orders", "subscriptions"):
-        print(f"  {tbl}: {con.execute(f'SELECT COUNT(*) FROM {tbl}').fetchone()[0]:,} rows")
+        print(
+            f"  {tbl}: {con.execute(f'SELECT COUNT(*) FROM {tbl}').fetchone()[0]:,} rows"
+        )
     con.close()
 
 

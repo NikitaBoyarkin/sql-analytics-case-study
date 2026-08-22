@@ -2,10 +2,11 @@
 
 Run: uv run --with duckdb --with pandas --with numpy --with pytest pytest -q
 """
+
 import pathlib
 
 import duckdb
-import pytest
+import pandas as pd
 
 ROOT = pathlib.Path(__file__).parent.parent
 CASES = ROOT / "cases"
@@ -97,3 +98,56 @@ def test_10_revenue_attribution():
     assert len(df) == 5  # 5 channels
     assert (df["lifetime_revenue"] >= df["first_touch_revenue"] - 0.01).all()
     assert df["lifetime_revenue"].is_monotonic_decreasing
+
+
+def test_11_moving_average_dau():
+    df = _run("11_moving_average_dau.sql")
+    assert len(df) == 181  # Jan 2 .. Jun 30
+    assert (df["dau"] > 0).all()
+    assert (df["dau_ma7"] > 0).all()
+    # no right-censoring cliff on the last day (generator truncates, not clamps)
+    assert df["dau"].max() < 800
+    assert df["d"].is_monotonic_increasing
+
+
+def test_12_qualify_top_users():
+    df = _run("12_qualify_top_users.sql")
+    assert len(df) == 10  # 5 countries x top-2
+    assert set(df["country"]) == {"RU", "UA", "KZ", "BY", "Other"}
+    assert (df.groupby("country")["user_id"].count() == 2).all()
+    # revenue strictly descending within each country (QUALIFY ordering)
+    for country, g in df.groupby("country"):
+        assert g["revenue"].is_monotonic_decreasing
+
+
+def test_13_pivot_revenue():
+    df = _run("13_pivot_revenue.sql")
+    assert len(df) == 6  # Jan .. Jun
+    assert df["month"].is_monotonic_increasing
+    cats = {"beauty", "books", "clothing", "electronics", "home", "sports"}
+    assert cats.issubset(df.columns)
+    for c in cats:
+        assert (df[c] > 0).all()  # every category sells every month
+
+
+def test_14_recursive_subscription_mrr():
+    df = _run("14_recursive_subscription_mrr.sql")
+    assert len(df) == 6  # Jan .. Jun, no July (subs capped at window end)
+    assert df["month"].iloc[0] == pd.Timestamp("2024-01-01")
+    assert df["month"].iloc[-1] == pd.Timestamp("2024-06-01")
+    assert df["mrr"].is_monotonic_increasing
+    assert (df["mrr"] > 0).all()
+    assert df["active_subs"].is_monotonic_increasing
+
+
+def test_15_percentile_order_amounts():
+    df = _run("15_percentile_order_amounts.sql")
+    assert len(df) == 6
+    # monotone quantiles: median <= p90 <= p99
+    assert (df["median_amount"] <= df["p90"]).all()
+    assert (df["p90"] <= df["p99"]).all()
+    # orders across categories sum to the full orders table
+    con = duckdb.connect(str(DB), read_only=True)
+    total = con.execute("SELECT COUNT(*) FROM orders").fetchone()[0]
+    con.close()
+    assert int(df["orders"].sum()) == total

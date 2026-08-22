@@ -1,8 +1,10 @@
 .venv/
 __pycache__/
 *.pyc
+.DS_Store
 data/*.csv
 data/*.duckdb
 data/*.duckdb.wal
 .pytest_cache/
 dist/
+reports/

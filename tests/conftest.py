@@ -1,4 +1,5 @@
 """Pytest config: ensure the DuckDB fixture exists before running tests."""
+
 import pathlib
 import subprocess
 import sys

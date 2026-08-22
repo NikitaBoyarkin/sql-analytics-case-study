@@ -1,10 +1,12 @@
 # SQL Analytics Case Study
 
-A take-home–style SQL analytics portfolio: 10 end-to-end case studies on a
+A take-home–style SQL analytics portfolio: 15 end-to-end case studies on a
 synthetic product dataset, runnable on DuckDB. Each case is one self-contained
 `.sql` file with the question and approach as a leading comment.
 
-No server, no credentials — one command builds the data and the database.
+No server, no credentials — one command builds the data and the database, and
+one command renders the whole thing into a **self-contained HTML report with
+charts** (`reports/index.html`).
 
 ## Topics covered
 
@@ -18,8 +20,13 @@ No server, no credentials — one command builds the data and the database.
 | 06 | Top-N categories per country | `ROW_NUMBER() OVER (PARTITION BY ...)` |
 | 07 | Cumulative revenue | windowed `SUM() ... UNBOUNDED PRECEDING` |
 | 08 | Longest active-day streak | gaps-and-islands (`row_number` → island key) |
-| 09 | A/B conversion by variant | left join, `LAG` for lift |
+| 09 | A/B conversion by variant | two-proportion z-test in pure SQL (z, p-value, verdict) |
 | 10 | Revenue attribution | first-touch vs lifetime, correlated subquery |
+| 11 | 7-day moving average of DAU | `AVG() OVER (... ROWS BETWEEN 6 PRECEDING ...)` |
+| 12 | Top-2 revenue users per country | `QUALIFY` (modern DuckDB filter-after-window) |
+| 13 | Monthly revenue by category | `PIVOT` long → wide |
+| 14 | Subscription MRR | recursive CTE (billing rows per subscription) |
+| 15 | Order amount distribution | `MEDIAN`, `QUANTILE_CONT` (p90/p99) |
 
 ## Data
 
@@ -27,37 +34,83 @@ Synthetic, deterministic (seed = 42). One run produces identical output.
 
 - **Users** — 20,000 signups over Jan–Jun 2024, with `channel`, `country`, `device`, `ab_variant`.
 - **Events** — ~183k funnel events (`app_open → view_item → add_to_cart → checkout → purchase`) across 80k sessions.
-- **Orders** — ~800 purchases with amount and product category.
-- **Subscriptions** — ~240 conversions to monthly/annual plans.
+- **Orders** — ~930 purchases with amount and product category.
+- **Subscriptions** — ~270 conversions to monthly/annual plans.
 
 Schema: [`data/schema.sql`](data/schema.sql). Generator: [`data/generate_data.py`](data/generate_data.py).
 
 Engagement decays geometrically from signup; retention is weighted by acquisition
-channel, so cohorts and channels produce visible, non-trivial differences.
+channel, so cohorts and channels produce visible, non-trivial differences. Sessions
+are right-truncated (not clamped) at the observation end, and the A/B assignment
+carries an **embedded treatment effect** so case 09 detects a real, significant
+signal — a deliberate "find the lift" exercise.
 
 ## Quick start
 
 ```bash
-# Python >=3.10. Dependencies: duckdb, pandas, numpy (pytest for tests).
-uv run --with duckdb --with pandas --with numpy python data/generate_data.py   # build data/analytics.duckdb
-uv run --with duckdb --with pandas python run.py            # list cases
-uv run --with duckdb --with pandas python run.py 1          # run a case
-uv run --with duckdb --with pandas python run.py 4 --limit 20
+# Python >=3.10. Dependencies: duckdb, pandas, numpy, matplotlib (pytest for tests).
+uv sync --extra dev                    # install everything once
+uv run python data/generate_data.py    # build data/analytics.duckdb
+uv run python run.py                   # list cases
+uv run python run.py 1                 # run a case
+uv run python run.py 9 --limit 20      # run with a row limit
+uv run python scripts/report.py        # render reports/index.html (charts + all cases)
 ```
 
-Tests (regression invariants per case):
+Tests (regression invariants per case + golden answers pinned to cases.md):
 
 ```bash
-uv run --with duckdb --with pandas --with numpy --with pytest pytest -q
+uv run --extra dev pytest -q
 ```
 
 The runner prints the case's question, executes the SQL against
-`data/analytics.duckdb`, and renders the result as a table.
+`data/analytics.duckdb`, and renders the result as a table. The report script
+renders every case as a chart + table in one shareable HTML file.
+
+## Portfolio highlights
+
+- **A/B test with statistics in pure SQL** (`cases/09_ab_test_join.sql`) — computes
+  a two-proportion z-test, p-value (normal-CDF via Abramowitz–Stegun), and a
+  significance verdict without any statistical library.
+- **Modern DuckDB idioms** — `QUALIFY` (12), `PIVOT` (13), recursive CTE (14).
+- **Classic analytical patterns** — funnel, retention (point + rolling), DAU/MAU,
+  LTV, top-N, running totals, gaps-and-islands, attribution, percentiles.
+- **Data-quality instinct** — right-truncation instead of end-clamping, so the DAU
+  trend has no artificial end-of-window spike.
+- **Regression tests** — every case has invariant tests + golden-answer tests that
+  keep `cases.md` and the codebase in sync.
+
+## Interview talking points
+
+1. **Funnel:** the biggest drop is add-to-cart → checkout (54% of carts never
+   proceed). That is where instrumentation and UX effort should go first.
+2. **Retention:** D1 ~19–21% is stable, but collapses to ~5% by D30 — the leak is
+   in the onboarding window, not long-term engagement.
+3. **A/B:** treatment converts higher (4.9% vs 3.8%, +1.1pp) and the lift is
+   significant (z = 4.8, p < 0.01). Always state the analysis unit: user-level
+   conversion (~4–5%) differs from session-level (~1%, case 01).
+4. **Monetization:** referral out-earns its user share (repeat purchases), while
+   paid_search is one-and-done — a signal for channel strategy.
+5. **Subscriptions:** MRR compounds ~15× Jan→Jun ($170 → $2,500) — the durable
+   growth engine.
+
+## Trade-offs & design notes
+
+- **DuckDB over a server DB:** single-file, zero-config, window functions and
+  `QUALIFY`/`PIVOT`/recursive CTEs all work the same as in Postgres — an easy
+  demo and interview environment. The SQL itself is portable.
+- **Pure SQL cases:** no Python glue in the analysis. `run.py` and `report.py`
+  are presentation only, which keeps every case self-contained and reviewable.
+- **Fixed seed = reproducibility, not freshness:** deterministic data means the
+  answers are stable and testable; the downside is it is not "real" data. The
+  patterns generalize directly.
+- **Recursive CTE for MRR uses a full-month convention** (no proration) and
+  recognizes annual plans as ARR/12 — stated assumptions, easy to change.
 
 ## Ad-hoc exploration
 
 ```bash
-uv run --with duckdb python -c "import duckdb; print(duckdb.connect('data/analytics.duckdb', read_only=True).execute('SELECT channel, COUNT(*) FROM users GROUP BY channel').fetchall())"
+uv run python -c "import duckdb; print(duckdb.connect('data/analytics.duckdb', read_only=True).execute('SELECT channel, COUNT(*) FROM users GROUP BY channel').fetchall())"
 ```
 
 ## Layout
@@ -68,18 +121,23 @@ sql-analytics-case-study/
 │   ├── schema.sql            # CREATE TABLE definitions
 │   ├── generate_data.py      # deterministic synthetic data + DuckDB build
 │   └── analytics.duckdb      # generated (gitignored)
-├── cases/                    # one .sql per case
+├── cases/                    # one .sql per case (15)
+├── scripts/
+│   └── report.py             # HTML report generator with charts
 ├── tests/
 │   ├── conftest.py           # auto-builds the DB if missing
-│   └── test_expected_results.py
+│   ├── test_expected_results.py   # per-case regression invariants
+│   └── test_golden_answers.py     # pins cases.md numbers to the DB
+├── .github/workflows/ci.yml  # pytest + report render on push/PR
 ├── run.py                    # CLI runner
 └── cases.md                  # all cases with answers + notes
 ```
 
 ## Notes
 
-- DuckDB chosen for analytic SQL: window functions, range joins, `DATE` arithmetic, single-file DB, no server.
-- Every case is pure SQL — no Python glue. `run.py` is just a convenience wrapper.
+- Every case is pure SQL. `run.py` and `report.py` are convenience wrappers.
 - The synthetic data is intentionally realistic enough that case answers reveal
   business signal (e.g. referral channel over-indexes on retention; funnel drops
   hardest at add-to-cart → checkout).
+- `cases.md` and `tests/test_golden_answers.py` are the two sources of truth for
+  expected numbers — if one changes, the other must too.

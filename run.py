@@ -5,6 +5,7 @@ Usage:
     uv run python run.py 1          # run case 01_funnel_conversion.sql
     uv run python run.py 5 --limit 20
 """
+
 from __future__ import annotations
 
 import argparse
@@ -31,7 +32,10 @@ def run_case(num: int, limit: int | None = None) -> None:
         sys.exit(1)
     path = matches[0]
     if not DB.exists():
-        print("Database missing. Run: uv run python data/generate_data.py", file=sys.stderr)
+        print(
+            "Database missing. Run: uv run python data/generate_data.py",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     sql = path.read_text()
@@ -59,9 +63,10 @@ def run_case(num: int, limit: int | None = None) -> None:
 
 def pd_option_context():
     import pandas as pd
-    return pd.option_context("display.max_columns", None,
-                             "display.width", 200,
-                             "display.max_colwidth", 40)
+
+    return pd.option_context(
+        "display.max_columns", None, "display.width", 200, "display.max_colwidth", 40
+    )
 
 
 def main() -> None:

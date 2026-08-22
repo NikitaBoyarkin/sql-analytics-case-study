@@ -1,0 +1,6 @@
+# Force GitHub Linguist to count SQL in language stats.
+# Without this, the .sql case files are excluded from the repo's
+# language breakdown, so SQL never appears in the top-langs card.
+*.sql linguist-language=SQL
+*.sql linguist-detectable=true
+*.sql linguist-vendored=false
