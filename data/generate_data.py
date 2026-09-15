@@ -19,6 +19,9 @@ HERE = pathlib.Path(__file__).parent
 SCHEMA = (HERE / "schema.sql").read_text()
 
 SEED = 42
+# Separate stream for additive tables (cases 21-25): must never draw from the
+# seed-42 generator, or every golden answer shifts downstream.
+SEED_ADDITIVE = 43
 N_USERS = 20_000
 N_SESSIONS = 80_000
 START = pd.Timestamp("2024-01-01")
@@ -185,13 +188,62 @@ def build_events(
     return events, orders, subscriptions
 
 
-def write_outputs(users, events, orders, subscriptions) -> None:
+def build_cancellations(
+    rng: np.random.Generator, subscriptions: pd.DataFrame
+) -> pd.DataFrame:
+    """~40% of subscriptions cancel after start, within the observation window.
+
+    Drawn from the seed-43 stream only; seed-42 tables stay identical.
+    """
+    n = len(subscriptions)
+    mask = rng.random(n) < 0.40
+    started = subscriptions["started_at"].values.astype("datetime64[ns]")
+    cand = np.minimum(
+        started + rng.integers(1, 61, n).astype("timedelta64[D]"),
+        np.datetime64(END),
+    )
+    ok = mask & (cand > started)
+    return pd.DataFrame(
+        {
+            "sub_id": subscriptions["sub_id"].values[ok],
+            "cancelled_at": cand[ok],
+        }
+    )
+
+
+def build_refunds(rng: np.random.Generator, orders: pd.DataFrame) -> pd.DataFrame:
+    """~5% of orders are refunded shortly after purchase (full or half).
+
+    Drawn from the seed-43 stream only; seed-42 tables stay identical.
+    """
+    n = len(orders)
+    mask = rng.random(n) < 0.05
+    ts = orders["order_ts"].values.astype("datetime64[ns]")
+    frac = rng.choice([1.0, 0.5], n, p=[0.60, 0.40])
+    amt = np.round(orders["amount"].values * frac, 2)
+    cand = np.minimum(
+        ts + rng.integers(0, 31, n).astype("timedelta64[D]"), np.datetime64(END)
+    )
+    oids = orders["order_id"].values[mask]
+    return pd.DataFrame(
+        {
+            "refund_id": np.arange(1, len(oids) + 1),
+            "order_id": oids,
+            "refunded_at": cand[mask],
+            "amount": amt[mask],
+        }
+    )
+
+
+def write_outputs(users, events, orders, subscriptions, cancellations, refunds) -> None:
     HERE.joinpath("users.csv").write_text("")
     for name, df in [
         ("users", users),
         ("events", events),
         ("orders", orders),
         ("subscriptions", subscriptions),
+        ("subscription_cancellations", cancellations),
+        ("refunds", refunds),
     ]:
         df.to_csv(HERE / f"{name}.csv", index=False)
 
@@ -204,11 +256,22 @@ def write_outputs(users, events, orders, subscriptions) -> None:
     con.register("_events", events)
     con.register("_orders", orders)
     con.register("_subs", subscriptions)
+    con.register("_canc", cancellations)
+    con.register("_refunds", refunds)
     con.execute("INSERT INTO users SELECT * FROM _users")
     con.execute("INSERT INTO events SELECT * FROM _events")
     con.execute("INSERT INTO orders SELECT * FROM _orders")
     con.execute("INSERT INTO subscriptions SELECT * FROM _subs")
-    for tbl in ("users", "events", "orders", "subscriptions"):
+    con.execute("INSERT INTO subscription_cancellations SELECT * FROM _canc")
+    con.execute("INSERT INTO refunds SELECT * FROM _refunds")
+    for tbl in (
+        "users",
+        "events",
+        "orders",
+        "subscriptions",
+        "subscription_cancellations",
+        "refunds",
+    ):
         print(
             f"  {tbl}: {con.execute(f'SELECT COUNT(*) FROM {tbl}').fetchone()[0]:,} rows"
         )
@@ -217,10 +280,13 @@ def write_outputs(users, events, orders, subscriptions) -> None:
 
 def main() -> None:
     rng = np.random.default_rng(SEED)
+    rng_add = np.random.default_rng(SEED_ADDITIVE)
     print(f"Generating data (seed={SEED}, users={N_USERS}, sessions={N_SESSIONS})...")
     users = build_users(rng)
     events, orders, subscriptions = build_events(rng, users)
-    write_outputs(users, events, orders, subscriptions)
+    cancellations = build_cancellations(rng_add, subscriptions)
+    refunds = build_refunds(rng_add, orders)
+    write_outputs(users, events, orders, subscriptions, cancellations, refunds)
     print(f"Done. CSVs + analytics.duckdb in {HERE}")
 
 

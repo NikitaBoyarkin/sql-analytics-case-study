@@ -223,3 +223,64 @@ def test_20_rfm():
     assert df["pct_of_revenue"].sum() > 99
     # frequency barely discriminates (repeat rate ~3.5%) -> whale tier is tiny
     assert int(df.loc[df.segment == "Big Spenders", "buyers"].iloc[0]) < 30
+
+
+def test_21_subscription_churn():
+    df = _run("21_subscription_churn.sql")
+    assert len(df) == 5  # Feb .. Jun
+    assert (df["subs_at_start"] > 0).all()
+    assert (df["churned"] >= 0).all()
+    assert (df["churned"] <= df["subs_at_start"]).all()
+    for col in ("logo_churn_pct", "mrr_churn_pct"):
+        assert df[col].between(0, 100).all()
+    # MRR churn tracks logo churn (flat-price plans): both rise together
+    assert df["logo_churn_pct"].iloc[-1] > df["logo_churn_pct"].iloc[0]
+    assert df["mrr_churn_pct"].iloc[-1] > df["mrr_churn_pct"].iloc[0]
+    assert df["subs_at_start"].is_monotonic_increasing
+
+
+def test_22_refunds_net_revenue():
+    df = _run("22_refunds_net_revenue.sql")
+    assert len(df) == 6
+    assert (df["net"] <= df["gross"] + 0.01).all()
+    assert (df["refunded"] >= 0).all()
+    assert df["refund_rate_pct"].between(0, 100).all()
+    # gross and net roughly track each other (refund rate is small)
+    assert (df["net"] > 0.8 * df["gross"]).all()
+
+
+def test_23_pareto_concentration():
+    df = _run("23_pareto_concentration.sql")
+    assert len(df) == 10
+    assert df["revenue"].is_monotonic_decreasing  # highest decile first
+    assert df["pct_of_revenue"].between(0, 100).all()
+    assert df["pct_of_buyers"].between(9, 11).all()
+    # cumulative share is monotone and ends at 100
+    assert df["cum_pct"].is_monotonic_increasing
+    assert abs(df["cum_pct"].iloc[-1] - 100.0) < 0.1
+    # top decile > bottom decile by revenue share
+    assert df["pct_of_revenue"].iloc[0] > df["pct_of_revenue"].iloc[-1]
+
+
+def test_24_anomaly_detection():
+    df = _run("24_anomaly_detection.sql")
+    assert len(df) == 172  # days with >=7 days of history
+    assert (df["daily_revenue"] > 0).all()
+    assert (df["z_mad"].notna()).all()
+    flagged = df[df["anomalous"] == "YES"]
+    assert len(flagged) == 4  # exactly 4 days cross |z| >= 3
+    # every flagged day is a genuine outlier (|z| >= 3)
+    assert (flagged["z_mad"].abs() >= 3).all()
+    assert df["d"].is_monotonic_increasing
+
+
+def test_25_subscription_conversion():
+    df = _run("25_subscription_conversion.sql")
+    s = {m: v for m, v in zip(df["metric"], df["value"])}
+    assert int(s["purchasers"]) == 896
+    assert int(s["subscribers"]) == 268
+    assert float(s["conversion_pct"]) > 25
+    assert int(float(s["median_days_to_convert"])) <= int(
+        float(s["p90_days_to_convert"])
+    )
+    assert int(s["monthly_subs"]) + int(s["annual_subs"]) == int(s["subscribers"])

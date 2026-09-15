@@ -147,6 +147,31 @@ META: dict[int, dict] = {
         "frequency axis barely discriminates because repeat rate is 3.5% — RFM here is "
         "mostly a recency story.",
     },
+    21: {
+        "title": "Subscription churn (logo & MRR)",
+        "signal": "Logo churn grows from 5.6% to ~15% as the base matures; MRR churn tracks "
+        "it. MRR compounding (case 14) is hiding a fast-leaking bucket — a churn alarm.",
+    },
+    22: {
+        "title": "Refunds & net revenue",
+        "signal": "~4.1% of gross is refunded (2.2-6.0%/month, February worst). Report net, "
+        "not gross — refund rate is a revenue-quality number.",
+    },
+    23: {
+        "title": "Pareto revenue concentration",
+        "signal": "Top decile = 22.3% of revenue, top 3 deciles = 50.2%. No 80/20 — there "
+        "is no whale tier, so don't build a VIP product for one.",
+    },
+    24: {
+        "title": "Daily revenue anomaly detection",
+        "signal": "Median+MAD z-score on a trailing-14-day baseline flags exactly 4 days "
+        "(Jan 25 z=5.3, Mar 23, Apr 7, Jun 14) — a promo pattern to investigate, not noise.",
+    },
+    25: {
+        "title": "Purchase → subscription conversion",
+        "signal": "29.9% of purchasers subscribe within a week (median 3 days, p90 6); 26% "
+        "pick annual. The upsell window is narrow — hit it fast.",
+    },
 }
 
 
@@ -549,6 +574,127 @@ def chart_20(df: pd.DataFrame) -> str:
     return _b64(fig)
 
 
+def chart_21(df: pd.DataFrame) -> str:
+    fig, ax = _fig(w=7)
+    ax.plot(
+        df["m"],
+        df["logo_churn_pct"],
+        marker="o",
+        ms=3,
+        color=ACCENT,
+        label="logo churn %",
+    )
+    ax.plot(
+        df["m"],
+        df["mrr_churn_pct"],
+        marker="o",
+        ms=3,
+        color=ACCENT3,
+        label="MRR churn %",
+    )
+    ax.set_xticks(
+        range(len(df)),
+        [str(m)[:7] for m in df["m"]],
+        fontsize=7,
+        rotation=30,
+        ha="right",
+    )
+    ax.set_ylabel("churn %")
+    ax.legend(fontsize=7, facecolor=PANEL, labelcolor=TXT)
+    _style(ax)
+    return _b64(fig)
+
+
+def chart_22(df: pd.DataFrame) -> str:
+    fig, ax = _fig(w=8)
+    x = np.arange(len(df))
+    w = 0.36
+    ax.bar(x - w / 2, df["gross"], w, color=ACCENT, label="gross")
+    ax.bar(x + w / 2, df["net"], w, color=ACCENT2, label="net")
+    for i, (g, n) in enumerate(zip(df["gross"], df["net"])):
+        ax.text(i - w / 2, g + 20, f"{g:.0f}", ha="center", fontsize=7, color=TXT)
+        ax.text(i + w / 2, n + 20, f"{n:.0f}", ha="center", fontsize=7, color=TXT)
+    ax.set_xticks(x, [str(m)[:7] for m in df["m"]], fontsize=7, rotation=30, ha="right")
+    ax.set_ylabel("revenue ($)")
+    ax.legend(fontsize=7, facecolor=PANEL, labelcolor=TXT)
+    _style(ax)
+    return _b64(fig)
+
+
+def chart_23(df: pd.DataFrame) -> str:
+    fig, ax = _fig(w=7.5)
+    ax.bar(
+        df["decile"],
+        df["pct_of_revenue"],
+        color=ACCENT,
+        alpha=0.85,
+        label="% of revenue",
+    )
+    ax.plot(
+        df["decile"],
+        df["cum_pct"],
+        color=ACCENT3,
+        marker="o",
+        ms=3,
+        lw=1.4,
+        label="cumulative %",
+    )
+    for i, c in enumerate(df["cum_pct"]):
+        ax.text(
+            i,
+            df["pct_of_revenue"].iloc[i] + 0.5,
+            f"{c:.0f}%",
+            ha="center",
+            fontsize=7,
+            color=TXT,
+        )
+    ax.set_xticks(df["decile"])
+    ax.set_ylabel("% of revenue")
+    ax.legend(fontsize=7, facecolor=PANEL, labelcolor=TXT)
+    _style(ax)
+    return _b64(fig)
+
+
+def chart_24(df: pd.DataFrame) -> str:
+    fig, ax = _fig(w=9, h=3.6)
+    ax.plot(
+        df["d"],
+        df["daily_revenue"],
+        color="#475569",
+        lw=0.7,
+        alpha=0.9,
+        label="daily revenue",
+    )
+    ax.plot(
+        df["d"],
+        df["baseline_median"],
+        color=ACCENT,
+        lw=1.2,
+        label="14d median baseline",
+    )
+    an = df[df["anomalous"] == "YES"]
+    ax.scatter(
+        an["d"], an["daily_revenue"], color=ACCENT3, s=30, zorder=5, label="anomalous"
+    )
+    ax.set_ylabel("revenue ($)")
+    ax.legend(fontsize=7, facecolor=PANEL, labelcolor=TXT)
+    _style(ax)
+    return _b64(fig)
+
+
+def chart_25(df: pd.DataFrame) -> str:
+    fig, ax = _fig(w=6)
+    s = {m: v for m, v in zip(df["metric"], df["value"])}
+    labels = ["monthly", "annual"]
+    vals = [int(s["monthly_subs"]), int(s["annual_subs"])]
+    ax.bar(labels, vals, color=[ACCENT, ACCENT3])
+    for i, v in enumerate(vals):
+        ax.text(i, v + 4, str(v), ha="center", color=TXT, fontsize=9)
+    ax.set_ylabel("converted users")
+    _style(ax)
+    return _b64(fig)
+
+
 CHARTS = {
     1: chart_01,
     2: chart_02,
@@ -570,6 +716,11 @@ CHARTS = {
     18: chart_18,
     19: chart_19,
     20: chart_20,
+    21: chart_21,
+    22: chart_22,
+    23: chart_23,
+    24: chart_24,
+    25: chart_25,
 }
 
 
@@ -589,6 +740,10 @@ def dataset_summary(con: duckdb.DuckDBPyConnection) -> dict[str, int]:
         "subscriptions": con.execute("SELECT COUNT(*) FROM subscriptions").fetchone()[
             0
         ],
+        "refunds": con.execute("SELECT COUNT(*) FROM refunds").fetchone()[0],
+        "cancellations": con.execute(
+            "SELECT COUNT(*) FROM subscription_cancellations"
+        ).fetchone()[0],
     }
 
 
@@ -641,8 +796,9 @@ def build_html(con: duckdb.DuckDBPyConnection, cases: list[pathlib.Path]) -> str
             "Month-1 revenue retention holds (~67-88%) but month-2 cliffs to ~10-20%; repeat rate is just 3.5% — one purchase ≈ lifetime.",
         ),
         (
-            "Subscriptions",
-            "MRR compounds ~15x Jan→Jun ($170 → $2,500) — the subscription line is the durable growth engine.",
+            "Subscriptions & churn",
+            "MRR compounds ~15x Jan→Jun (case 14) while logo churn reaches ~15%/month "
+            "(case 21) — the engine grows even as it leaks; churn is the next lever.",
         ),
     ]
     exec_html = "".join(
@@ -692,13 +848,15 @@ def build_html(con: duckdb.DuckDBPyConnection, cases: list[pathlib.Path]) -> str
 </style></head>
 <body><div class="wrap">
   <h1>SQL Analytics Case Study</h1>
-  <p class="sub">20 end-to-end SQL analyses on a synthetic product dataset · DuckDB · deterministic (seed 42)</p>
+  <p class="sub">25 end-to-end SQL analyses on a synthetic product dataset · DuckDB · deterministic (seed 42)</p>
   <div class="stats">
     <div class="stat"><b>{stats["users"]:,}</b><span>users</span></div>
     <div class="stat"><b>{stats["events"]:,}</b><span>events</span></div>
     <div class="stat"><b>{stats["sessions"]:,}</b><span>sessions</span></div>
     <div class="stat"><b>{stats["orders"]:,}</b><span>orders</span></div>
     <div class="stat"><b>{stats["subscriptions"]:,}</b><span>subscriptions</span></div>
+    <div class="stat"><b>{stats["refunds"]:,}</b><span>refunds</span></div>
+    <div class="stat"><b>{stats["cancellations"]:,}</b><span>cancellations</span></div>
   </div>
   <nav class="toc">{toc}</nav>
   <div class="kpis">{exec_html}</div>

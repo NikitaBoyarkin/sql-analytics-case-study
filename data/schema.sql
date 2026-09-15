@@ -33,3 +33,17 @@ CREATE TABLE subscriptions (
     plan        VARCHAR,   -- monthly | annual
     amount      DOUBLE
 );
+
+-- Additive tables for cases 21-25. Generated on a separate RNG stream (seed 43)
+-- so the seed-42 tables above stay byte-identical and their golden answers hold.
+CREATE TABLE subscription_cancellations (
+    sub_id        INTEGER PRIMARY KEY REFERENCES subscriptions(sub_id),
+    cancelled_at  TIMESTAMP
+);
+
+CREATE TABLE refunds (
+    refund_id    INTEGER PRIMARY KEY,
+    order_id     INTEGER REFERENCES orders(order_id),
+    refunded_at  TIMESTAMP,
+    amount       DOUBLE
+);

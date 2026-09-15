@@ -244,3 +244,60 @@ Promising are ~1.2% each. Revenue tracks buyer share ~1:1 — no whale tier.
 (case 19) — RFM here is mostly a *recency* story, so "Loyal" vs "At Risk" is
 about last-purchase timing, not loyalty. Even revenue distribution: there is no
 heavy-user backbone to double down on.
+
+## 21 · Subscription churn (logo & MRR)
+
+**Q:** What is monthly logo and MRR churn, and how fast does the sub base leak?
+
+**A:** Logo churn grows from 5.6% (Feb) to ~15% (Jun) as the base matures; MRR
+churn tracks it closely (5.9% → 14.8%, $10 → $210/month churned). 98 of 268
+subscriptions (37%) cancel within the window by design.
+
+**Signal:** MRR churn ≈ logo churn here because plans are flat-price — the two
+diverge only when pricing is heterogeneous. A ~15%/month logo churn is a churn
+alarm: it means MRR compounding (case 14) is hiding a fast-leaking bucket.
+
+## 22 · Refunds & net revenue
+
+**Q:** How much gross revenue is refunded, and where do refunds concentrate?
+
+**A:** 53 refunds ($1,031 of $25,194 gross, ~4.1% overall). Monthly refund rate
+runs 2.2–6.0%; February is the worst (6.03%).
+
+**Signal:** report net, not gross — the refund rate is a revenue-quality number.
+~4% is normal for e-commerce; a spiking month is a trigger to inspect
+fulfilment/quality, not noise to ignore.
+
+## 23 · Pareto / revenue concentration
+
+**Q:** Where does revenue concentrate — is there a whale tier worth productizing?
+
+**A:** Top decile of buyers = 22.3% of revenue; top 3 deciles = 50.2%; bottom
+decile = 3.5%. The heaviest decile is ~2× the lightest. No 80/20.
+
+**Signal:** concentration is moderate — the answer to "build a VIP tier?" is no,
+there are no whales. Running the Pareto check *before* building a tier saves
+building a product for a segment that doesn't exist.
+
+## 24 · Daily revenue anomaly detection
+
+**Q:** Which days deviate significantly from their own recent baseline?
+
+**A:** A robust (median + MAD) z-score against a trailing-14-day baseline flags
+exactly 4 days at |z| ≥ 3: Jan 25 (z = 5.3), Mar 23 (3.8), Apr 7 (3.2), Jun 14
+(3.2) — each ~2–3× its recent median.
+
+**Signal:** median/MAD beats mean/std for log-normal revenue — a mean baseline
+would flag high-variance days instead. 4 isolated spikes over 6 months ≈ a
+promo/holiday pattern to investigate, not noise.
+
+## 25 · Purchase → subscription conversion
+
+**Q:** Of purchasers, who converts to a paid subscription, and how fast?
+
+**A:** 268 of 896 purchasers subscribe (29.9%); median 3 days from first order
+(p90 = 6). 197 convert to monthly, 71 to annual (~26% of conversions).
+
+**Signal:** the upsell window is one week — subscription marketing must hit
+within days of first purchase. ~26% of converts choose annual despite the bigger
+commitment: the annual pitch is working and worth scaling.

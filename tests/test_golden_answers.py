@@ -131,3 +131,47 @@ def test_20_rfm_golden():
     assert int(df["buyers"].sum()) == 896
     assert int(df.loc[df.segment == "Champions", "buyers"].iloc[0]) == 166
     assert int(df.loc[df.segment == "Big Spenders", "buyers"].iloc[0]) == 11
+
+
+def test_21_churn_golden():
+    df = _run("21_subscription_churn.sql")
+    assert int(df["subs_at_start"].iloc[-1]) == 153
+    assert int(df["churned"].iloc[-1]) == 23
+    assert float(df["logo_churn_pct"].iloc[-1]) == 15.03
+    assert float(df["mrr_churn_pct"].iloc[-1]) == 14.76
+
+
+def test_22_refunds_golden():
+    df = _run("22_refunds_net_revenue.sql")
+    assert float(df.loc[df.m == pd.Timestamp("2024-01-01"), "gross"].iloc[0]) == 2469.03
+    assert (
+        float(df.loc[df.m == pd.Timestamp("2024-02-01"), "refunded"].iloc[0]) == 244.06
+    )
+    assert (
+        float(df.loc[df.m == pd.Timestamp("2024-02-01"), "refund_rate_pct"].iloc[0])
+        == 6.03
+    )
+
+
+def test_23_pareto_golden():
+    df = _run("23_pareto_concentration.sql")
+    assert float(df.loc[df.decile == 1, "pct_of_revenue"].iloc[0]) == 22.33
+    assert float(df.loc[df.decile == 3, "cum_pct"].iloc[0]) == 50.19
+    assert abs(float(df["cum_pct"].iloc[-1]) - 100.0) < 0.1
+
+
+def test_24_anomaly_golden():
+    df = _run("24_anomaly_detection.sql")
+    flagged = df[df["anomalous"] == "YES"]
+    assert len(flagged) == 4
+    jan25 = df.loc[df.d == pd.Timestamp("2024-01-25")]
+    assert float(jan25["z_mad"].iloc[0]) == 5.3
+
+
+def test_25_conversion_golden():
+    df = _run("25_subscription_conversion.sql")
+    s = {m: v for m, v in zip(df["metric"], df["value"])}
+    assert int(s["purchasers"]) == 896
+    assert int(s["subscribers"]) == 268
+    assert float(s["conversion_pct"]) == 29.9
+    assert int(float(s["median_days_to_convert"])) == 3

@@ -1,6 +1,6 @@
 # SQL Analytics Case Study
 
-A take-home–style SQL analytics portfolio: 20 end-to-end case studies on a
+A take-home–style SQL analytics portfolio: 25 end-to-end case studies on a
 synthetic product dataset, runnable on DuckDB. Each case is one self-contained
 `.sql` file with the question and approach as a leading comment.
 
@@ -32,6 +32,11 @@ charts** (`reports/index.html`).
 | 18 | Cohort revenue retention (triangle) | months-since-signup self-join, % of period-0 |
 | 19 | Repeat purchase & time between orders | `LAG` within user, repeat-rate |
 | 20 | RFM segmentation | `NTILE` quintiles, segment-score rules |
+| 21 | Subscription churn (logo & MRR) | monthly churn, `FILTER` aggregates |
+| 22 | Refunds & net revenue | left join, gross-vs-net by month |
+| 23 | Pareto / revenue concentration | `NTILE(10)`, cumulative-share curve |
+| 24 | Daily revenue anomaly detection | robust MAD z-score, rolling baseline |
+| 25 | Purchase → subscription conversion | join to subscriptions, time-to-convert |
 
 ## Data
 
@@ -41,6 +46,9 @@ Synthetic, deterministic (seed = 42). One run produces identical output.
 - **Events** — ~183k funnel events (`app_open → view_item → add_to_cart → checkout → purchase`) across 80k sessions.
 - **Orders** — ~930 purchases with amount and product category.
 - **Subscriptions** — ~270 conversions to monthly/annual plans.
+- **Additive (cases 21–25, seed 43):** `subscription_cancellations` (~98) and
+  `refunds` (~53) — generated on a *separate* RNG stream so the seed-42 tables
+  above stay byte-identical and their golden answers hold.
 
 Schema: [`data/schema.sql`](data/schema.sql). Generator: [`data/generate_data.py`](data/generate_data.py).
 
@@ -91,6 +99,9 @@ renders every case as a chart + table in one shareable HTML file.
   even revenue distribution: the dataset is a one-and-done purchase engine, and
   RFM degenerates to a recency story. Saying "the repeat lever is the gap" is
   the interview answer, not the chart.
+- **Additive data without breaking goldens** — cases 21–25 (churn, refunds,
+  Pareto, anomaly detection, upsell conversion) run on two new tables generated
+  on a separate RNG stream; the seed-42 numbers in cases 1–20 never move.
 
 ## Interview talking points
 
@@ -136,7 +147,7 @@ sql-analytics-case-study/
 │   ├── schema.sql            # CREATE TABLE definitions
 │   ├── generate_data.py      # deterministic synthetic data + DuckDB build
 │   └── analytics.duckdb      # generated (gitignored)
-├── cases/                    # one .sql per case (20)
+├── cases/                    # one .sql per case (25)
 ├── scripts/
 │   └── report.py             # HTML report generator with charts
 ├── tests/
