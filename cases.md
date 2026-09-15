@@ -174,3 +174,73 @@ Electronics has the highest total revenue ($4,805); beauty is the most
 **Signal:** median (not mean) is the honest central AOV; p99 guards against
 outlier orders (fraud / bulk purchases). `MEDIAN` and `QUANTILE_CONT` are the
 native idioms.
+
+## 16 · Sessionization + session depth
+
+**Q:** Can we reconstruct sessions from raw event timestamps alone (ignoring the
+pre-assigned `session_id`), and how deep is the typical session?
+
+**A:** Gaps-and-islands on `event_time` with a 30-minute inactivity gap
+reconstructs 79,700 sessions vs the 80,000 pre-assigned — **99.6% fidelity**;
+298 same-day back-to-back sessions closer than 30 min get merged, **none split**.
+Median session = 2 events; 74% of sessions are 2–3 events, 18% are a single
+event, median duration 0 min (sub-minute bursts).
+
+**Signal:** a session definition is a business choice, not a data fact. The
+30-min gap rule reproduces ground truth almost exactly — always validate a
+derivation against known ids before trusting it. Sessions are shallow bursts:
+depth (events), not duration, is the engagement signal.
+
+## 17 · Weekly lifecycle composition
+
+**Q:** What is the weekly mix of new / returning / resurrecting / dormant users,
+and how does growth quality evolve?
+
+**A:** New users fall from 100% of the base (week 1) to ~30% and stay there;
+returning stabilizes at ~37%; resurrecting grows to ~33%; dormant climbs to
+~60–66% of the active base.
+
+**Signal:** after ramp, ~1/3 of the weekly active base is *resurrecting* lapsed
+users and dormant equals ~60% of active — reactivation does as much work as
+acquisition. Compare the new-vs-resurrecting split to judge whether "growth" is
+real or recycled lapsed users.
+
+## 18 · Cohort revenue retention (triangle)
+
+**Q:** How does revenue from each signup cohort decay by months-since-signup, and
+does it decay as fast as activity retention (cases 02/03)?
+
+**A:** Month-1 revenue retention is strong (~67–88% of period-0), but month-2
+collapses to ~10–20% and month-3 to ~4–6%. LTV accumulates to ~$1.2–1.5 per
+user by the end of observation.
+
+**Signal:** revenue retention decays *faster* than activity retention — one
+purchase is effectively lifetime. A healthy month-1 NRR followed by a third-month
+cliff means monetization is a single transaction, not a repeat engine.
+
+## 19 · Repeat purchase & time between orders
+
+**Q:** How repeatable is purchase behavior, and how quickly do repeat buyers come
+back?
+
+**A:** 896 buyers, only **31 (3.5%)** ever return — 30 buy twice, 1 buys three
+times, none 4+. Median time between purchases is 9 days (p90 = 28).
+
+**Signal:** an honest finding — this is a one-and-done purchase engine. A 3.5%
+repeat rate is the single biggest monetization lever; with ~96% single-purchase
+customers, growth is entirely acquisition-dependent.
+
+## 20 · RFM segmentation (NTILE)
+
+**Q:** Which buyer segments deserve the most attention, and where does revenue
+concentrate?
+
+**A:** `NTILE(5)` on recency (inverted), frequency and monetary → 1–5 scores,
+then label rules. Segments split buyers nearly evenly (Champions 18.5%, Loyal
+20.2%, Regular 20.0%, At Risk 19.6%, Hibernating 19.2%); Big Spenders and
+Promising are ~1.2% each. Revenue tracks buyer share ~1:1 — no whale tier.
+
+**Signal:** the frequency axis barely discriminates because repeat rate is ~3.5%
+(case 19) — RFM here is mostly a *recency* story, so "Loyal" vs "At Risk" is
+about last-purchase timing, not loyalty. Even revenue distribution: there is no
+heavy-user backbone to double down on.

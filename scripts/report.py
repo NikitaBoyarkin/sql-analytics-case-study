@@ -118,6 +118,35 @@ META: dict[int, dict] = {
         "signal": "Medians sit at $21-25 but p99 reaches $63-93 — a fat tail. A p99 AOV "
         "guard catches outliers; median (not mean) is the honest central AOV.",
     },
+    16: {
+        "title": "Sessionization & session depth",
+        "signal": "A 30-min inactivity gap reconstructs the 80k pre-assigned sessions "
+        "with 99.6% fidelity (298 sub-30-min same-day sessions merged, none split). "
+        "Median session = 2 events — depth, not duration, is the engagement signal.",
+    },
+    17: {
+        "title": "Weekly lifecycle composition",
+        "signal": "New users fall from 100% to ~30% of the weekly base while resurrecting "
+        "grows to ~33% and dormant climbs to ~60% of active — reactivation does as "
+        "much work as acquisition.",
+    },
+    18: {
+        "title": "Cohort revenue retention (triangle)",
+        "signal": "Revenue retention holds at ~67-88% into month 1 but collapses to "
+        "~10-20% by month 2 — one purchase is effectively lifetime. Monetization has "
+        "no repeat engine.",
+    },
+    19: {
+        "title": "Repeat purchase & time between orders",
+        "signal": "Only 3.5% of buyers ever return (896 buyers, 31 repeat). This is a "
+        "one-and-done purchase engine — the repeat lever is the biggest monetization gap.",
+    },
+    20: {
+        "title": "RFM segmentation (NTILE)",
+        "signal": "Revenue splits ~evenly across segments; Big Spenders are just 1.2%. The "
+        "frequency axis barely discriminates because repeat rate is 3.5% — RFM here is "
+        "mostly a recency story.",
+    },
 }
 
 
@@ -389,6 +418,137 @@ def chart_15(df: pd.DataFrame) -> str:
     return _b64(fig)
 
 
+def chart_16(df: pd.DataFrame) -> str:
+    fig, ax = _fig(w=7.5)
+    order = [
+        "sessions_1_event",
+        "sessions_2_3_events",
+        "sessions_4_5_events",
+        "sessions_6plus_events",
+    ]
+    labels = {
+        "sessions_1_event": "1 event",
+        "sessions_2_3_events": "2-3 events",
+        "sessions_4_5_events": "4-5 events",
+        "sessions_6plus_events": "6+ events",
+    }
+    sub = df[df["metric"].isin(order)].set_index("metric").reindex(order)
+    vals = sub["value"].astype(int)
+    ax.bar([labels[m] for m in sub.index], vals, color=ACCENT)
+    for i, v in enumerate(vals):
+        ax.text(i, v + 500, f"{v:,}", ha="center", color=TXT, fontsize=8)
+    ax.set_ylabel("derived sessions")
+    _style(ax)
+    return _b64(fig)
+
+
+def chart_17(df: pd.DataFrame) -> str:
+    fig, ax = _fig(w=9, h=3.6)
+    weeks = [str(w)[:10] for w in df["wk"]]
+    ax.bar(weeks, df["new_users"], color=ACCENT, label="new")
+    ax.bar(
+        weeks,
+        df["returning_users"],
+        bottom=df["new_users"],
+        color=ACCENT2,
+        label="returning",
+    )
+    ax.bar(
+        weeks,
+        df["resurrecting_users"],
+        bottom=df["new_users"] + df["returning_users"],
+        color=ACCENT3,
+        label="resurrecting",
+    )
+    ax.plot(
+        weeks,
+        df["dormant_users"],
+        color=ACCENT4,
+        marker="o",
+        ms=2,
+        lw=1.0,
+        label="dormant",
+    )
+    ticks = list(range(0, len(weeks), 4))
+    ax.set_xticks(ticks)
+    ax.set_xticklabels([weeks[i] for i in ticks], fontsize=7)
+    ax.set_ylabel("users")
+    ax.legend(fontsize=6, facecolor=PANEL, labelcolor=TXT)
+    _style(ax)
+    return _b64(fig)
+
+
+def chart_18(df: pd.DataFrame) -> str:
+    fig, ax = _fig(w=7, h=4.2)
+    piv = df.pivot(index="cohort", columns="period", values="revenue")
+    mat = piv.fillna(0).values
+    ax.imshow(mat, aspect="auto", cmap="Blues")
+    ax.set_xticks(range(piv.shape[1]))
+    ax.set_xticklabels([f"m{c}" for c in piv.columns], fontsize=7)
+    ax.set_yticks(range(piv.shape[0]))
+    ax.set_yticklabels([str(c)[:7] for c in piv.index], fontsize=7)
+    for i in range(piv.shape[0]):
+        for j in range(piv.shape[1]):
+            v = mat[i, j]
+            if v > 0:
+                ax.text(
+                    j,
+                    i,
+                    f"{v:.0f}",
+                    ha="center",
+                    va="center",
+                    fontsize=7,
+                    color="white" if v > mat.max() * 0.5 else "#0f172a",
+                )
+    ax.set_xlabel("months since signup")
+    ax.set_title("revenue per cohort-period ($)", fontsize=9, color=TXT)
+    ax.grid(False)
+    for s in ("top", "right", "left", "bottom"):
+        ax.spines[s].set_visible(False)
+    ax.tick_params(colors=TXT, labelsize=8)
+    return _b64(fig)
+
+
+def chart_19(df: pd.DataFrame) -> str:
+    fig, ax = _fig(w=7)
+    order = [
+        "buyers_1_order",
+        "buyers_2_orders",
+        "buyers_3_orders",
+        "buyers_4plus_orders",
+    ]
+    labels = {
+        "buyers_1_order": "1 order",
+        "buyers_2_orders": "2 orders",
+        "buyers_3_orders": "3 orders",
+        "buyers_4plus_orders": "4+ orders",
+    }
+    sub = df[df["metric"].isin(order)].set_index("metric").reindex(order)
+    vals = sub["value"].astype(int)
+    ax.bar(
+        [labels[m] for m in sub.index], vals, color=[ACCENT, ACCENT2, ACCENT3, ACCENT4]
+    )
+    for i, v in enumerate(vals):
+        ax.text(i, v + 5, str(v), ha="center", color=TXT, fontsize=8)
+    ax.set_ylabel("buyers")
+    _style(ax)
+    return _b64(fig)
+
+
+def chart_20(df: pd.DataFrame) -> str:
+    fig, ax = _fig(w=8)
+    d = df.sort_values("revenue", ascending=False)
+    ax.bar(d["segment"], d["revenue"], color=ACCENT)
+    for i, (rev, pct) in enumerate(zip(d["revenue"], d["pct_of_revenue"])):
+        ax.text(
+            i, rev + 40, f"{rev:.0f} ({pct:.0f}%)", ha="center", color=TXT, fontsize=7
+        )
+    ax.set_ylabel("revenue ($)")
+    ax.tick_params(axis="x", labelsize=7)
+    _style(ax)
+    return _b64(fig)
+
+
 CHARTS = {
     1: chart_01,
     2: chart_02,
@@ -405,6 +565,11 @@ CHARTS = {
     13: chart_13,
     14: chart_14,
     15: chart_15,
+    16: chart_16,
+    17: chart_17,
+    18: chart_18,
+    19: chart_19,
+    20: chart_20,
 }
 
 
@@ -468,8 +633,12 @@ def build_html(con: duckdb.DuckDBPyConnection, cases: list[pathlib.Path]) -> str
             "Treatment wins on purchase conversion (4.9% vs 3.8%, +1.1pp) and the result is statistically significant (z=4.8, p<0.01).",
         ),
         (
-            "Monetization",
-            "Lifetime revenue concentrates in organic + referral; referral out-earns its user share — repeat purchases from high retention.",
+            "Lifecycle",
+            "New users fall from 100% to ~30% of the weekly base while resurrecting grows to ~33% — reactivation does as much work as acquisition.",
+        ),
+        (
+            "Revenue retention",
+            "Month-1 revenue retention holds (~67-88%) but month-2 cliffs to ~10-20%; repeat rate is just 3.5% — one purchase ≈ lifetime.",
         ),
         (
             "Subscriptions",
@@ -523,7 +692,7 @@ def build_html(con: duckdb.DuckDBPyConnection, cases: list[pathlib.Path]) -> str
 </style></head>
 <body><div class="wrap">
   <h1>SQL Analytics Case Study</h1>
-  <p class="sub">15 end-to-end SQL analyses on a synthetic product dataset · DuckDB · deterministic (seed 42)</p>
+  <p class="sub">20 end-to-end SQL analyses on a synthetic product dataset · DuckDB · deterministic (seed 42)</p>
   <div class="stats">
     <div class="stat"><b>{stats["users"]:,}</b><span>users</span></div>
     <div class="stat"><b>{stats["events"]:,}</b><span>events</span></div>

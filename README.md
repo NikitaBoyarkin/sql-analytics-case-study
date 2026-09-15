@@ -1,6 +1,6 @@
 # SQL Analytics Case Study
 
-A take-home–style SQL analytics portfolio: 15 end-to-end case studies on a
+A take-home–style SQL analytics portfolio: 20 end-to-end case studies on a
 synthetic product dataset, runnable on DuckDB. Each case is one self-contained
 `.sql` file with the question and approach as a leading comment.
 
@@ -27,6 +27,11 @@ charts** (`reports/index.html`).
 | 13 | Monthly revenue by category | `PIVOT` long → wide |
 | 14 | Subscription MRR | recursive CTE (billing rows per subscription) |
 | 15 | Order amount distribution | `MEDIAN`, `QUANTILE_CONT` (p90/p99) |
+| 16 | Sessionization + session depth | gaps-and-islands on timestamps, validation vs ground truth |
+| 17 | Weekly lifecycle (new/returning/resurrecting/dormant) | state transitions, `LAG`/`LEAD` |
+| 18 | Cohort revenue retention (triangle) | months-since-signup self-join, % of period-0 |
+| 19 | Repeat purchase & time between orders | `LAG` within user, repeat-rate |
+| 20 | RFM segmentation | `NTILE` quintiles, segment-score rules |
 
 ## Data
 
@@ -79,6 +84,13 @@ renders every case as a chart + table in one shareable HTML file.
   trend has no artificial end-of-window spike.
 - **Regression tests** — every case has invariant tests + golden-answer tests that
   keep `cases.md` and the codebase in sync.
+- **Sessionization with validation** (`cases/16_sessionization.sql`) — derives
+  sessions from raw timestamps with a 30-min inactivity gap and proves the
+  derivation against the pre-assigned ids (99.6% fidelity).
+- **An honest business finding** — cases 19–20 reveal a 3.5% repeat rate and an
+  even revenue distribution: the dataset is a one-and-done purchase engine, and
+  RFM degenerates to a recency story. Saying "the repeat lever is the gap" is
+  the interview answer, not the chart.
 
 ## Interview talking points
 
@@ -93,6 +105,9 @@ renders every case as a chart + table in one shareable HTML file.
    paid_search is one-and-done — a signal for channel strategy.
 5. **Subscriptions:** MRR compounds ~15× Jan→Jun ($170 → $2,500) — the durable
    growth engine.
+6. **Repeat purchase:** only 3.5% of buyers ever return (896 buyers, 31 repeat)
+   — this is a one-and-done purchase engine. When asked "what would you work on
+   next", the repeat lever is the honest answer.
 
 ## Trade-offs & design notes
 
@@ -121,7 +136,7 @@ sql-analytics-case-study/
 │   ├── schema.sql            # CREATE TABLE definitions
 │   ├── generate_data.py      # deterministic synthetic data + DuckDB build
 │   └── analytics.duckdb      # generated (gitignored)
-├── cases/                    # one .sql per case (15)
+├── cases/                    # one .sql per case (20)
 ├── scripts/
 │   └── report.py             # HTML report generator with charts
 ├── tests/

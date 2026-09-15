@@ -151,3 +151,75 @@ def test_15_percentile_order_amounts():
     total = con.execute("SELECT COUNT(*) FROM orders").fetchone()[0]
     con.close()
     assert int(df["orders"].sum()) == total
+
+
+def test_16_sessionization():
+    df = _run("16_sessionization.sql")
+    s = {m: v for m, v in zip(df["metric"], df["value"])}
+    assert int(s["derived_sessions"]) <= int(s["true_sessions"])
+    assert float(s["fidelity_pct"]) > 95
+    assert int(s["merged_pairs"]) > 0
+    # depth buckets partition the derived sessions exactly
+    assert int(s["sessions_1_event"]) + int(s["sessions_2_3_events"]) + int(
+        s["sessions_4_5_events"]
+    ) + int(s["sessions_6plus_events"]) == int(s["derived_sessions"])
+    # most sessions are shallow bursts (2-3 events)
+    assert int(s["sessions_2_3_events"]) > int(s["sessions_1_event"])
+    assert int(s["sessions_6plus_events"]) < 1000
+
+
+def test_17_lifecycle():
+    df = _run("17_lifecycle.sql")
+    assert len(df) == 26  # Jan 1 .. Jun 30 -> 26 Monday-started weeks
+    # the 3 active states must sum to 100% of the active base
+    assert (df["new_pct"] + df["returning_pct"] + df["resurrecting_pct"]).sub(
+        100
+    ).abs().max() < 1.0
+    assert (df["active_users"] > 0).all()
+    assert (df["dormant_users"] >= 0).all()
+    assert df["new_pct"].iloc[0] == 100.0  # week 1 is all-new
+    # late weeks: resurrecting is a material share of the base
+    assert (df["resurrecting_pct"].tail(10) > 25).all()
+
+
+def test_18_cohort_revenue_retention():
+    df = _run("18_cohort_revenue_retention.sql")
+    assert (
+        len(df) == 19
+    )  # triangle: Jan 5 + Feb 4 + Mar 4 + Apr 3 + May 2 + Jun 1 = 19 rows
+    assert (df["pct_of_period0"].between(0, 100)).all()
+    assert df.loc[df.period == 0, "pct_of_period0"].eq(100.0).all()
+    for cohort, g in df.groupby("cohort"):
+        assert g["pct_of_period0"].is_monotonic_decreasing
+    assert (df["ltv_per_user"] >= 0).all()
+    assert (df["cum_revenue"] >= df["revenue"] - 0.01).all()
+
+
+def test_19_repeat_purchase():
+    df = _run("19_repeat_purchase.sql")
+    s = {m: v for m, v in zip(df["metric"], df["value"])}
+    assert int(s["buyers"]) == 896
+    assert int(s["repeat_buyers"]) >= 30
+    assert float(s["repeat_rate_pct"]) < 10  # one-and-done purchase engine
+    assert int(s["buyers_1_order"]) + int(s["buyers_2_orders"]) + int(
+        s["buyers_3_orders"]
+    ) + int(s["buyers_4plus_orders"]) == int(s["buyers"])
+    assert int(float(s["median_days_between"])) <= int(float(s["p90_days_between"]))
+
+
+def test_20_rfm():
+    df = _run("20_rfm.sql")
+    assert len(df) == 7
+    assert set(df["segment"]) == {
+        "Champions",
+        "Loyal",
+        "Regular",
+        "At Risk",
+        "Hibernating",
+        "Big Spenders",
+        "Promising",
+    }
+    assert int(df["buyers"].sum()) == 896
+    assert df["pct_of_revenue"].sum() > 99
+    # frequency barely discriminates (repeat rate ~3.5%) -> whale tier is tiny
+    assert int(df.loc[df.segment == "Big Spenders", "buyers"].iloc[0]) < 30
