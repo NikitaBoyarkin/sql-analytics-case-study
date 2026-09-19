@@ -8,3 +8,5 @@ data/*.duckdb.wal
 .pytest_cache/
 dist/
 reports/
+dbt/target/
+dbt/logs/

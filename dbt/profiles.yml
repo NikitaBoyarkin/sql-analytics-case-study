@@ -1,0 +1,10 @@
+# DuckDB needs no credentials, so this profile is safe to commit.
+# The database is the same file the SQL cases run against.
+sql_analytics:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "../data/analytics.duckdb"
+      schema: dbt
+      threads: 4

@@ -1,0 +1,18 @@
+name: sql_analytics
+version: "1.0.0"
+config-version: 2
+
+profile: sql_analytics
+
+model-paths: ["models"]
+test-paths: ["tests"]
+
+target-path: "target"
+clean-targets: ["target", "logs"]
+
+models:
+  sql_analytics:
+    staging:
+      +materialized: view
+    marts:
+      +materialized: table

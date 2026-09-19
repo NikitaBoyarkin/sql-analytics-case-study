@@ -8,6 +8,42 @@ No server, no credentials — one command builds the data and the database, and
 one command renders the whole thing into a **self-contained HTML report with
 charts** (`reports/index.html`).
 
+## Three findings
+
+> 1. The funnel drops **54%** at add-to-cart → checkout — 54% of carts never proceed.
+> 2. Retention falls off a cliff: D1 **~21%** → D30 **~5%** — the leak is the onboarding window.
+> 3. Only **3.5%** of buyers ever repeat — a one-and-done purchase engine.
+
+**Resume / LinkedIn one-liner**
+
+```text
+SQL Analytics Case Study — 25 cases on DuckDB (live report + repo)
+Funnel drop 54% at cart→checkout · D1→D30 retention 21%→5% · repeat rate 3.5%
+25 deterministic cases, golden-answer tests, CI, dbt model layer.
+```
+
+## How to evaluate this in 5 minutes
+
+**What it is:** 25 end-to-end SQL analytics cases on one synthetic product
+dataset, runnable on DuckDB — funnel, retention, LTV, attribution,
+gaps-and-islands, and an A/B test with statistics written in pure SQL.
+
+**Three signals this proves:**
+
+- **SQL depth** — window functions, `QUALIFY`, `PIVOT`, recursive CTEs, and a
+  two-proportion z-test with a p-value computed entirely in SQL (case 09).
+- **Product framing** — every case ends in a business signal, not just a query:
+  where the funnel drops, where retention leaks, which lever is untouched.
+- **Discipline** — 25 deterministic cases (seed 42) with invariant and
+  golden-answer tests; the numbers in `cases.md` are pinned to the database and
+  CI stays green.
+
+**Fastest path:**
+
+1. Open the live report → <https://nikitaboyarkin.github.io/sql-analytics-case-study/>
+2. Read cases **01** (funnel), **09** (A/B lift), **19** (repeat engine).
+3. Model layer (staging → marts, tests) → see `dbt/`.
+
 ## Topics covered
 
 | # | Case | Technique |
@@ -80,6 +116,30 @@ The runner prints the case's question, executes the SQL against
 `data/analytics.duckdb`, and renders the result as a table. The report script
 renders every case as a chart + table in one shareable HTML file.
 
+## dbt model layer
+
+The same DuckDB file also has a dbt project (`dbt/`) proving the model layer:
+staging → marts, with tests. Three cases are ported to dbt with **identical
+golden numbers** to the hand-written SQL — enforced by tests inside `dbt build`.
+
+- **Ported cases:** 01 funnel (`fct_funnel`), 02 retention (`fct_retention`),
+  14 MRR (`fct_mrr`).
+- **Staging:** `stg_users`, `stg_events`, `stg_subscriptions` (views over the
+  raw tables via `source()`).
+- **Tests (17 in `dbt build`):** `not_null`, `unique`, `relationships`,
+  `accepted_values`, plus custom golden-answer tests and a funnel-monotonicity
+  rule test.
+- Models materialize into a separate `dbt` schema — the raw `main` tables and
+  the 25 SQL cases are untouched.
+
+```bash
+uv sync --extra dbt                   # add dbt-core + dbt-duckdb
+uv run python data/generate_data.py   # build the database (once)
+cd dbt && uv run dbt build --profiles-dir .
+```
+
+`profiles.yml` targets DuckDB with no credentials, so it is safe to commit.
+
 ## Portfolio highlights
 
 - **A/B test with statistics in pure SQL** (`cases/09_ab_test_join.sql`) — computes
@@ -148,13 +208,21 @@ sql-analytics-case-study/
 │   ├── generate_data.py      # deterministic synthetic data + DuckDB build
 │   └── analytics.duckdb      # generated (gitignored)
 ├── cases/                    # one .sql per case (25)
+├── dbt/                      # dbt project: staging → marts + tests (DuckDB)
+│   ├── dbt_project.yml
+│   ├── profiles.yml          # duckdb target, no credentials
+│   ├── models/staging/       # stg_users, stg_events, stg_subscriptions
+│   ├── models/marts/         # fct_funnel, fct_retention, fct_mrr
+│   └── tests/                # golden-answer + business-rule singular tests
+├── log/                      # application log + interview-rate lift (REQ-008)
+├── tracking/                 # tracking links + GitHub traffic baseline
 ├── scripts/
 │   └── report.py             # HTML report generator with charts
 ├── tests/
 │   ├── conftest.py           # auto-builds the DB if missing
 │   ├── test_expected_results.py   # per-case regression invariants
 │   └── test_golden_answers.py     # pins cases.md numbers to the DB
-├── .github/workflows/ci.yml  # pytest + report render on push/PR
+├── .github/workflows/ci.yml  # pytest + dbt build + report render on push/PR
 ├── run.py                    # CLI runner
 └── cases.md                  # all cases with answers + notes
 ```

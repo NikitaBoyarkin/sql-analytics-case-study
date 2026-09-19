@@ -36,9 +36,24 @@ jobs:
           name: analytics-report
           path: reports/index.html
 
+  dbt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install Python
+        run: uv python install 3.12
+      - name: Sync dependencies
+        run: uv sync --extra dbt
+      - name: Generate data
+        run: uv run python data/generate_data.py
+      - name: dbt build
+        working-directory: dbt
+        run: uv run dbt build --profiles-dir .
+
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: test
+    needs: [test, dbt]
     runs-on: ubuntu-latest
     environment:
       name: github-pages

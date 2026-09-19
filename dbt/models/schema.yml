@@ -1,0 +1,71 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Raw synthetic tables built by data/generate_data.py (seed 42).
+    schema: main
+    tables:
+      - name: users
+      - name: events
+      - name: subscriptions
+
+models:
+  - name: stg_users
+    description: Cleaned users, one row per user.
+    columns:
+      - name: user_id
+        description: Primary key.
+        data_tests:
+          - not_null
+          - unique
+
+  - name: stg_events
+    description: Funnel events, one row per event.
+    columns:
+      - name: user_id
+        description: FK to stg_users.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_users')
+                field: user_id
+
+  - name: stg_subscriptions
+    description: Subscription records, one row per subscription.
+    columns:
+      - name: sub_id
+        description: Primary key.
+        data_tests:
+          - not_null
+          - unique
+
+  - name: fct_funnel
+    description: "Case 01 — session-level funnel conversion."
+    columns:
+      - name: event_name
+        description: Funnel step, in order.
+        data_tests:
+          - not_null
+          - unique
+          - accepted_values:
+              arguments:
+                values: [app_open, view_item, add_to_cart, checkout, purchase]
+
+  - name: fct_retention
+    description: "Case 02 — N-day retention by signup-month cohort."
+    columns:
+      - name: cohort
+        description: Signup month (date_trunc to month).
+        data_tests:
+          - not_null
+          - unique
+
+  - name: fct_mrr
+    description: "Case 14 — subscription MRR by billing month."
+    columns:
+      - name: month
+        description: Billing month.
+        data_tests:
+          - not_null
+          - unique
