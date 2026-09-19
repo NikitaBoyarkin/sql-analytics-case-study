@@ -11,3 +11,4 @@ dist/
 reports/
 dbt/target/
 dbt/logs/
+dbt/output_data/*.csv

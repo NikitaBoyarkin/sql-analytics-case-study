@@ -47,6 +47,9 @@ models:
 
   - name: fct_funnel
     description: "Case 01 — session-level funnel conversion."
+    config:
+      materialized: external
+      location: "output_data/fct_funnel.csv"
     columns:
       - name: event_name
         description: Funnel step, in order.
@@ -59,6 +62,9 @@ models:
 
   - name: fct_retention
     description: "Case 02 — N-day retention by signup-month cohort."
+    config:
+      materialized: external
+      location: "output_data/fct_retention.csv"
     columns:
       - name: cohort
         description: Signup month (date_trunc to month).
@@ -68,6 +74,9 @@ models:
 
   - name: fct_mrr
     description: "Case 14 — subscription MRR by billing month."
+    config:
+      materialized: external
+      location: "output_data/fct_mrr.csv"
     columns:
       - name: month
         description: Billing month.
