@@ -1,0 +1,17 @@
+version: 2
+
+exposures:
+  - name: curated_marts
+    label: Curated SQL case-study marts
+    type: analysis
+    maturity: medium
+    description: >
+      Documented consumption layer for the SQL case study. The three curated
+      marts (funnel, retention, MRR) are the reviewer-facing outputs and are
+      reusable for BI or ad-hoc analysis over data/analytics.duckdb.
+    depends_on:
+      - ref('fct_funnel')
+      - ref('fct_retention')
+      - ref('fct_mrr')
+    owner:
+      name: Nikita Boyarkin

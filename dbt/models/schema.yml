@@ -21,6 +21,11 @@ models:
 
   - name: stg_events
     description: Funnel events, one row per event.
+    data_tests:
+      # One row per (session, funnel step): a session reaches each step at most once.
+      - unique_key:
+          arguments:
+            columns: [session_id, event_name]
     columns:
       - name: user_id
         description: FK to stg_users.
