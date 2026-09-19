@@ -1,8 +1,9 @@
 # SQL Analytics Case Study
 
 A take-home–style SQL analytics portfolio: 25 end-to-end case studies on a
-synthetic product dataset, runnable on DuckDB. Each case is one self-contained
-`.sql` file with the question and approach as a leading comment.
+synthetic product dataset, plus one **real-data** case (UCI Online Retail II) —
+runnable on DuckDB. Each case is one self-contained `.sql` file with the
+question and approach as a leading comment.
 
 No server, no credentials — one command builds the data and the database, and
 one command renders the whole thing into a **self-contained HTML report with
@@ -24,9 +25,9 @@ Funnel drop 54% at cart→checkout · D1→D30 retention 21%→5% · repeat rate
 
 ## How to evaluate this in 5 minutes
 
-**What it is:** 25 end-to-end SQL analytics cases on one synthetic product
-dataset, runnable on DuckDB — funnel, retention, LTV, attribution,
-gaps-and-islands, and an A/B test with statistics written in pure SQL.
+**What it is:** 25 synthetic SQL analytics cases + 1 real-data case (UCI Online
+Retail II) on DuckDB — funnel, retention, LTV, attribution, gaps-and-islands,
+and an A/B test with statistics written in pure SQL.
 
 **Three signals this proves:**
 
@@ -41,7 +42,8 @@ gaps-and-islands, and an A/B test with statistics written in pure SQL.
 **Fastest path:**
 
 1. Open the live report → <https://nikitaboyarkin.github.io/sql-analytics-case-study/>
-2. Read cases **01** (funnel), **09** (A/B lift), **19** (repeat engine).
+2. Read cases **01** (funnel), **09** (A/B lift), **19** (repeat engine),
+   **26** (the same pattern on real data — and why it flips).
 3. Model layer (staging → marts, tests) → see `dbt/`.
 
 ## Topics covered
@@ -73,6 +75,7 @@ gaps-and-islands, and an A/B test with statistics written in pure SQL.
 | 23 | Pareto / revenue concentration | `NTILE(10)`, cumulative-share curve |
 | 24 | Daily revenue anomaly detection | robust MAD z-score, rolling baseline |
 | 25 | Purchase → subscription conversion | join to subscriptions, time-to-convert |
+| 26 | **Real data** — repeat purchase & concentration (UCI Online Retail II) | invoice→customer rollup, order-count buckets, revenue shares |
 
 ## Data
 
@@ -94,6 +97,17 @@ are right-truncated (not clamped) at the observation end, and the A/B assignment
 carries an **embedded treatment effect** so case 09 detects a real, significant
 signal — a deliberate "find the lift" exercise.
 
+### Real data (case 26)
+
+Case 26 runs on the **UCI Online Retail II** dataset — 1,067,371 real invoice
+lines from a UK online retailer (2009-12 → 2011-12), CC BY 4.0, no synthetic
+scaffolding. The cleaned table ships as a committed 4.5 MB parquet
+([`data/realdata/`](data/realdata/README.md)), loaded into the same DuckDB by the
+generator, so the case runs offline against the same database as the synthetic
+cases. It re-runs the repeat-purchase / concentration pattern and finds the
+*inverse* of the synthetic engine: 72.4% of customers repeat and the top 15%
+drive 65% of revenue.
+
 ## Quick start
 
 ```bash
@@ -105,6 +119,9 @@ uv run python run.py 1                 # run a case
 uv run python run.py 9 --limit 20      # run with a row limit
 uv run python scripts/report.py        # render reports/index.html (charts + all cases)
 ```
+
+The real-data table is committed, so no download is needed. To rebuild it from
+the source workbook (once, ~44 MB): `uv run python data/realdata/build_realdata.py`.
 
 Tests (regression invariants per case + golden answers pinned to cases.md):
 
@@ -162,6 +179,10 @@ cd dbt && uv run dbt build --profiles-dir .
 - **Additive data without breaking goldens** — cases 21–25 (churn, refunds,
   Pareto, anomaly detection, upsell conversion) run on two new tables generated
   on a separate RNG stream; the seed-42 numbers in cases 1–20 never move.
+- **Real data, same SQL (case 26)** — the repeat-purchase/concentration pattern
+  re-run on 1M+ real invoice lines (UCI Online Retail II, CC BY 4.0) flips the
+  synthetic conclusion: 72.4% repeat vs 3.5%, top 15% = 65% of revenue vs no
+  whale tier. The pattern transfers; the business answer is data-dependent.
 
 ## Interview talking points
 
@@ -179,6 +200,10 @@ cd dbt && uv run dbt build --profiles-dir .
 6. **Repeat purchase:** only 3.5% of buyers ever return (896 buyers, 31 repeat)
    — this is a one-and-done purchase engine. When asked "what would you work on
    next", the repeat lever is the honest answer.
+7. **Real data (case 26):** the identical repeat/concentration query on UCI
+   Online Retail II gives the opposite answer — 72.4% repeat, top 15% = 65% of
+   revenue. The transferable asset is the pattern + the discipline, not the
+   synthetic number.
 
 ## Trade-offs & design notes
 
@@ -206,8 +231,9 @@ sql-analytics-case-study/
 ├── data/
 │   ├── schema.sql            # CREATE TABLE definitions
 │   ├── generate_data.py      # deterministic synthetic data + DuckDB build
-│   └── analytics.duckdb      # generated (gitignored)
-├── cases/                    # one .sql per case (25)
+│   ├── realdata/             # UCI Online Retail II: parquet + build script (case 26)
+│   ├── analytics.duckdb      # generated (gitignored)
+├── cases/                    # one .sql per case (25 synthetic + 1 real)
 ├── dbt/                      # dbt project: staging → marts + tests (DuckDB)
 │   ├── dbt_project.yml
 │   ├── profiles.yml          # duckdb target, no credentials

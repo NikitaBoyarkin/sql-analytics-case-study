@@ -301,3 +301,30 @@ promo/holiday pattern to investigate, not noise.
 **Signal:** the upsell window is one week — subscription marketing must hit
 within days of first purchase. ~26% of converts choose annual despite the bigger
 commitment: the annual pitch is working and worth scaling.
+
+## 26 · Real data — repeat purchase & revenue concentration
+
+**Q:** On a real two-year retail dataset, what share of customers repeat, and how
+concentrated is revenue?
+
+**A** (UCI Online Retail II, 1,067,371 invoice lines, 2009-12 → 2011-12): 5,878
+customers, 36,969 invoices, £17.7M revenue. **72.4%** of customers buy more than
+once. Order-count buckets:
+
+| Orders | Customers | % of customers | % of revenue |
+|--------|-----------|----------------|--------------|
+| 1      | 1,623     | 27.6%          | 3.2%         |
+| 2      | 944       | 16.1%          | 4.6%         |
+| 3–5    | 1,510     | 25.7%          | 12.0%        |
+| 6–10   | 925       | 15.7%          | 15.0%        |
+| 11+    | 876       | 14.9%          | 65.2%        |
+
+Top decile of customers = **63.9%** of revenue (top 20% = 77.3%).
+
+**Signal:** the same SQL pattern that says "one-and-done" on the synthetic engine
+says the opposite on real data — this retailer is repeat- and whale-driven (14.9%
+of customers carry 65% of revenue). That contrast is the point: the pattern
+transfers, and the business conclusion depends on the data, not the query.
+
+**Source & license:** UCI ML Repository, dataset 502, CC BY 4.0 — see
+`data/realdata/README.md`. Reproduce: `uv run python data/realdata/build_realdata.py`.

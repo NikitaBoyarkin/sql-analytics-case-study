@@ -175,3 +175,41 @@ def test_25_conversion_golden():
     assert int(s["subscribers"]) == 268
     assert float(s["conversion_pct"]) == 29.9
     assert int(float(s["median_days_to_convert"])) == 3
+
+
+def test_26_realdata_golden():
+    df = _run("26_realdata_repeat_concentration.sql").set_index("bucket")
+    assert int(df.loc["1", "customers"]) == 1_623
+    assert int(df.loc["11+", "customers"]) == 876
+    assert float(df.loc["11+", "revenue_share_pct"]) == 65.17
+    assert int(df["customers"].sum()) == 5_878
+    assert round(float(df["revenue_share_pct"].sum())) == 100
+
+    # headline metrics documented in cases.md, computed straight off the table
+    con = duckdb.connect(str(DB), read_only=True)
+    try:
+        repeat_pct, top10_share = con.execute(
+            """
+            WITH inv AS (
+                SELECT customer_id, invoice, SUM(quantity * price) AS rev
+                FROM online_retail
+                WHERE customer_id IS NOT NULL AND NOT is_cancellation
+                  AND quantity > 0 AND price > 0
+                GROUP BY customer_id, invoice
+            ),
+            cust AS (
+                SELECT customer_id, COUNT(*) AS orders, SUM(rev) AS rev
+                FROM inv GROUP BY customer_id
+            ),
+            ranked AS (SELECT rev, NTILE(10) OVER (ORDER BY rev DESC) AS dec FROM cust)
+            SELECT
+                (SELECT ROUND(100.0 * SUM(CASE WHEN orders > 1 THEN 1 ELSE 0 END)
+                              / COUNT(*), 1) FROM cust),
+                (SELECT ROUND(100.0 * SUM(CASE WHEN dec = 1 THEN rev ELSE 0 END)
+                              / SUM(rev), 1) FROM ranked)
+            """
+        ).fetchone()
+    finally:
+        con.close()
+    assert repeat_pct == 72.4
+    assert top10_share == 63.9

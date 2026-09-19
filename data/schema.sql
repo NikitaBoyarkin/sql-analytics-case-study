@@ -47,3 +47,9 @@ CREATE TABLE refunds (
     refunded_at  TIMESTAMP,
     amount       DOUBLE
 );
+
+-- Real-data table for case 26 (not synthetic). Created by generate_data.py from
+-- data/realdata/online_retail.parquet (UCI Online Retail II, CC BY 4.0):
+--   online_retail(invoice, stock_code, quantity, invoice_ts, price,
+--                 customer_id, country, is_cancellation)
+-- See data/realdata/README.md for source, license and schema.

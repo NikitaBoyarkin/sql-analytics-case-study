@@ -5,6 +5,7 @@ __pycache__/
 data/*.csv
 data/*.duckdb
 data/*.duckdb.wal
+data/realdata/raw/
 .pytest_cache/
 dist/
 reports/

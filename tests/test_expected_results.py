@@ -284,3 +284,19 @@ def test_25_subscription_conversion():
         float(s["p90_days_to_convert"])
     )
     assert int(s["monthly_subs"]) + int(s["annual_subs"]) == int(s["subscribers"])
+
+
+def test_26_realdata_repeat_concentration():
+    df = _run("26_realdata_repeat_concentration.sql")
+    assert list(df["bucket"]) == ["1", "2", "3-5", "6-10", "11+"]
+    # shares must each sum to ~100%
+    assert abs(df["customer_share_pct"].sum() - 100) < 0.1
+    assert abs(df["revenue_share_pct"].sum() - 100) < 0.1
+    # revenue share rises monotonically with order count
+    assert df["revenue_share_pct"].is_monotonic_increasing
+    # one-time buyers are a minority of revenue; the top bucket dominates
+    assert float(df.loc[df.bucket == "1", "revenue_share_pct"].iloc[0]) < 5
+    assert float(df.loc[df.bucket == "11+", "revenue_share_pct"].iloc[0]) > 60
+    # repeat customers (any bucket past "1") are the majority
+    repeat_share = df.loc[df.bucket != "1", "customer_share_pct"].sum()
+    assert repeat_share > 70

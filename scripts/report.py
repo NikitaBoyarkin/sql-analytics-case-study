@@ -172,6 +172,13 @@ META: dict[int, dict] = {
         "signal": "29.9% of purchasers subscribe within a week (median 3 days, p90 6); 26% "
         "pick annual. The upsell window is narrow — hit it fast.",
     },
+    26: {
+        "title": "Real data — repeat purchase & concentration",
+        "signal": "On the real UCI Online Retail II data the pattern inverts: 72.4% of "
+        "customers repeat and the top 15% (11+ orders) drive 65% of revenue, while "
+        "one-time buyers are 28% of customers but 3% of revenue. Same SQL, opposite "
+        "business conclusion — the synthetic engine is a one-and-done anomaly.",
+    },
 }
 
 
@@ -695,6 +702,39 @@ def chart_25(df: pd.DataFrame) -> str:
     return _b64(fig)
 
 
+def chart_26(df: pd.DataFrame) -> str:
+    fig, ax = _fig(w=8)
+    x = np.arange(len(df))
+    w = 0.38
+    ax.bar(
+        x - w / 2, df["customer_share_pct"], w, color=ACCENT2, label="% of customers"
+    )
+    ax.bar(x + w / 2, df["revenue_share_pct"], w, color=ACCENT, label="% of revenue")
+    for i in range(len(df)):
+        ax.text(
+            i - w / 2,
+            df["customer_share_pct"].iloc[i] + 1,
+            f"{df['customer_share_pct'].iloc[i]:.0f}",
+            ha="center",
+            fontsize=7,
+            color=TXT,
+        )
+        ax.text(
+            i + w / 2,
+            df["revenue_share_pct"].iloc[i] + 1,
+            f"{df['revenue_share_pct'].iloc[i]:.0f}",
+            ha="center",
+            fontsize=7,
+            color=TXT,
+        )
+    ax.set_xticks(x, df["bucket"])
+    ax.set_xlabel("orders per customer")
+    ax.set_ylabel("% share")
+    ax.legend(fontsize=7, facecolor=PANEL, labelcolor=TXT)
+    _style(ax)
+    return _b64(fig)
+
+
 CHARTS = {
     1: chart_01,
     2: chart_02,
@@ -721,6 +761,7 @@ CHARTS = {
     23: chart_23,
     24: chart_24,
     25: chart_25,
+    26: chart_26,
 }
 
 
@@ -730,20 +771,23 @@ def df_to_html(df: pd.DataFrame) -> str:
 
 
 def dataset_summary(con: duckdb.DuckDBPyConnection) -> dict[str, int]:
+    def count(table: str) -> int:
+        try:
+            return con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+        except duckdb.Error:
+            return 0
+
     return {
-        "users": con.execute("SELECT COUNT(*) FROM users").fetchone()[0],
-        "events": con.execute("SELECT COUNT(*) FROM events").fetchone()[0],
+        "users": count("users"),
+        "events": count("events"),
         "sessions": con.execute(
             "SELECT COUNT(DISTINCT session_id) FROM events"
         ).fetchone()[0],
-        "orders": con.execute("SELECT COUNT(*) FROM orders").fetchone()[0],
-        "subscriptions": con.execute("SELECT COUNT(*) FROM subscriptions").fetchone()[
-            0
-        ],
-        "refunds": con.execute("SELECT COUNT(*) FROM refunds").fetchone()[0],
-        "cancellations": con.execute(
-            "SELECT COUNT(*) FROM subscription_cancellations"
-        ).fetchone()[0],
+        "orders": count("orders"),
+        "subscriptions": count("subscriptions"),
+        "refunds": count("refunds"),
+        "cancellations": count("subscription_cancellations"),
+        "online_retail": count("online_retail"),
     }
 
 
@@ -800,6 +844,12 @@ def build_html(con: duckdb.DuckDBPyConnection, cases: list[pathlib.Path]) -> str
             "MRR compounds ~15x Jan→Jun (case 14) while logo churn reaches ~15%/month "
             "(case 21) — the engine grows even as it leaks; churn is the next lever.",
         ),
+        (
+            "Real data (case 26)",
+            "On the real UCI Online Retail II data the picture inverts: 72.4% of "
+            "customers repeat and the top 15% (11+ orders) drive 65% of revenue — "
+            "unlike the synthetic one-and-done engine.",
+        ),
     ]
     exec_html = "".join(
         f'<div class="kpi"><div class="kpi-t">{t}</div><div class="kpi-v">{v}</div></div>'
@@ -848,7 +898,7 @@ def build_html(con: duckdb.DuckDBPyConnection, cases: list[pathlib.Path]) -> str
 </style></head>
 <body><div class="wrap">
   <h1>SQL Analytics Case Study</h1>
-  <p class="sub">25 end-to-end SQL analyses on a synthetic product dataset · DuckDB · deterministic (seed 42)</p>
+  <p class="sub">25 synthetic SQL analyses + 1 real-data case (UCI Online Retail II) · DuckDB · deterministic (seed 42)</p>
   <div class="stats">
     <div class="stat"><b>{stats["users"]:,}</b><span>users</span></div>
     <div class="stat"><b>{stats["events"]:,}</b><span>events</span></div>
@@ -857,6 +907,7 @@ def build_html(con: duckdb.DuckDBPyConnection, cases: list[pathlib.Path]) -> str
     <div class="stat"><b>{stats["subscriptions"]:,}</b><span>subscriptions</span></div>
     <div class="stat"><b>{stats["refunds"]:,}</b><span>refunds</span></div>
     <div class="stat"><b>{stats["cancellations"]:,}</b><span>cancellations</span></div>
+    <div class="stat"><b>{stats["online_retail"]:,}</b><span>real invoice lines</span></div>
   </div>
   <nav class="toc">{toc}</nav>
   <div class="kpis">{exec_html}</div>

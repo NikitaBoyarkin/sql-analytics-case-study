@@ -17,6 +17,7 @@ import pandas as pd
 
 HERE = pathlib.Path(__file__).parent
 SCHEMA = (HERE / "schema.sql").read_text()
+REALDATA = HERE / "realdata" / "online_retail.parquet"
 
 SEED = 42
 # Separate stream for additive tables (cases 21-25): must never draw from the
@@ -274,6 +275,16 @@ def write_outputs(users, events, orders, subscriptions, cancellations, refunds) 
     ):
         print(
             f"  {tbl}: {con.execute(f'SELECT COUNT(*) FROM {tbl}').fetchone()[0]:,} rows"
+        )
+    # Real-data table for case 26 (UCI Online Retail II). Loaded when present so
+    # the case runs against the same database as the synthetic cases.
+    if REALDATA.exists():
+        con.execute(
+            f"CREATE TABLE online_retail AS SELECT * FROM read_parquet('{REALDATA}')"
+        )
+        print(
+            "  online_retail (real, UCI Online Retail II): "
+            f"{con.execute('SELECT COUNT(*) FROM online_retail').fetchone()[0]:,} rows"
         )
     con.close()
 
