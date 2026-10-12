@@ -1,5 +1,49 @@
 # SQL Analytics Case Study
 
+> 25 DuckDB SQL cases + 1 real-data case: the funnel drops **54%** at cart→checkout, D1→D30 retention falls **21%→5%**, and repeat buyers are just **3.5%**.
+
+## Navigation
+- 🌐 [Portfolio site](https://nikitaboyarkin.github.io)
+- 🏦 [Flagship case: Volta neobank](https://github.com/NikitaBoyarkin/volta-banking)
+- 🧪 Related: [sql-analytics-case-study](https://github.com/NikitaBoyarkin/sql-analytics-case-study) · [churn-prediction](https://github.com/NikitaBoyarkin/churn-prediction) · [rfm-analysis-of-bank-clients](https://github.com/NikitaBoyarkin/rfm-analysis-of-bank-clients)
+
+**On this page:** [Situation](#situation) · [Task](#task) · [Actions](#actions) · [Result](#result) · [Three findings](#three-findings) · [Topics covered](#topics-covered) · [Quick start](#quick-start) · [dbt model layer](#dbt-model-layer) · [Layout](#layout)
+
+## Situation
+
+A take-home–style SQL portfolio has to look like real production analysis:
+reproducible data, defensible numbers, and a business read at the end of every
+query. Most portfolios stop at the query; this one has to survive being re-run
+and reviewed without a server, credentials, or hand-holding.
+
+## Task
+
+Build a single runnable portfolio that proves SQL depth, product framing, and
+testing discipline at once — 25 deterministic cases plus one real-data case, with
+every headline number pinned to the database by tests.
+
+## Actions
+
+- 25 self-contained pure-SQL cases on DuckDB — window functions, `QUALIFY`,
+  `PIVOT`, recursive CTEs — each with the question as a leading comment.
+- A two-proportion z-test with a p-value computed entirely in SQL (case 09).
+- A dbt model layer (staging → marts) with 17 tests in `dbt build`; three cases
+  ported to identical golden numbers.
+- Deterministic data (seed 42); invariant and golden-answer tests pin `cases.md`
+  to the database, and CI stays green.
+- Case 26 re-runs the repeat-purchase / concentration pattern on 1,067,371 real
+  UCI Online Retail II invoice lines.
+- One command builds the data and the database; one renders a self-contained
+  HTML report with charts.
+
+## Result
+
+- **54%** — funnel drop at add-to-cart → checkout; the single biggest leak.
+- **21% → 5%** — D1 → D30 retention; the leak is the onboarding window.
+- **3.5%** — repeat buyers (896 buyers, 31 repeat) — a one-and-done purchase engine.
+- **4.9% vs 3.8%** (z = 4.8, p < 0.01) — A/B treatment lift, significant.
+- **72.4% vs 3.5%** — the same query on real data (top 15% = 65% of revenue) flips the synthetic conclusion.
+
 A take-home–style SQL analytics portfolio: 25 end-to-end case studies on a
 synthetic product dataset, plus one **real-data** case (UCI Online Retail II) —
 runnable on DuckDB. Each case is one self-contained `.sql` file with the
