@@ -14,8 +14,9 @@ step-to-step and overall conversion?
 29,641 added to cart (45.1% of viewers); 6,584 reached checkout (22.2% of
 carts); 928 purchased (14.1% of checkouts, 1.16% overall).
 
-**Signal:** the sharpest drop is add-to-cart → checkout (54% of carts never
-proceed). That is the highest-leverage step to instrument and fix.
+**Signal:** the sharpest drop is add-to-cart → checkout (78% of carts never
+proceed; the earlier view_item → add_to_cart step drops 55%). That is the
+highest-leverage step to instrument and fix.
 
 ## 02 · N-day retention by cohort
 

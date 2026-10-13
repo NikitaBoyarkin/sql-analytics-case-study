@@ -1,0 +1,222 @@
+{
+  "row_counts": {
+    "users": 20000,
+    "orders": 928,
+    "events": 182892,
+    "subscriptions": 268,
+    "refunds": 53,
+    "cancellations": 98
+  },
+  "funnel": [
+    {
+      "event_name": "app_open",
+      "sessions": 80000,
+      "overall_pct": 100.0,
+      "step_pct": NaN,
+      "step_drop_pct": NaN
+    },
+    {
+      "event_name": "view_item",
+      "sessions": 65739,
+      "overall_pct": 82.17,
+      "step_pct": 82.17,
+      "step_drop_pct": 17.83
+    },
+    {
+      "event_name": "add_to_cart",
+      "sessions": 29641,
+      "overall_pct": 37.05,
+      "step_pct": 45.09,
+      "step_drop_pct": 54.91
+    },
+    {
+      "event_name": "checkout",
+      "sessions": 6584,
+      "overall_pct": 8.23,
+      "step_pct": 22.21,
+      "step_drop_pct": 77.79
+    },
+    {
+      "event_name": "purchase",
+      "sessions": 928,
+      "overall_pct": 1.16,
+      "step_pct": 14.09,
+      "step_drop_pct": 85.91
+    }
+  ],
+  "retention_overall": {
+    "d1": 19.48,
+    "d7": 14.74,
+    "d30": 4.18
+  },
+  "retention_by_cohort": [
+    {
+      "cohort": "2024-01",
+      "d1": 20.69,
+      "d7": 14.96,
+      "d30": 5.15
+    },
+    {
+      "cohort": "2024-02",
+      "d1": 19.87,
+      "d7": 15.95,
+      "d30": 4.64
+    },
+    {
+      "cohort": "2024-03",
+      "d1": 18.67,
+      "d7": 15.53,
+      "d30": 5.02
+    },
+    {
+      "cohort": "2024-04",
+      "d1": 19.53,
+      "d7": 15.68,
+      "d30": 5.29
+    },
+    {
+      "cohort": "2024-05",
+      "d1": 18.64,
+      "d7": 15.22,
+      "d30": 4.79
+    },
+    {
+      "cohort": "2024-06",
+      "d1": 19.47,
+      "d7": 10.96,
+      "d30": 0.0
+    }
+  ],
+  "repeat": {
+    "buyers": 896,
+    "repeat_buyers": 31,
+    "repeat_rate_pct": 3.46
+  },
+  "ab": {
+    "control_pct": 3.77,
+    "treatment_pct": 5.18,
+    "z": 4.81,
+    "n0": 9918,
+    "n1": 10082
+  },
+  "orders_by_category": [
+    {
+      "product_category": "clothing",
+      "count": 163,
+      "mean": 29.114662576687113,
+      "sum": 4745.69,
+      "share": 18.8,
+      "vs_overall": 7.2
+    },
+    {
+      "product_category": "electronics",
+      "count": 173,
+      "mean": 27.774046242774567,
+      "sum": 4804.91,
+      "share": 19.1,
+      "vs_overall": 2.3
+    },
+    {
+      "product_category": "home",
+      "count": 152,
+      "mean": 27.09256578947368,
+      "sum": 4118.07,
+      "share": 16.3,
+      "vs_overall": -0.2
+    },
+    {
+      "product_category": "books",
+      "count": 130,
+      "mean": 26.59030769230769,
+      "sum": 3456.74,
+      "share": 13.7,
+      "vs_overall": -2.1
+    },
+    {
+      "product_category": "sports",
+      "count": 156,
+      "mean": 26.56160256410256,
+      "sum": 4143.61,
+      "share": 16.4,
+      "vs_overall": -2.2
+    },
+    {
+      "product_category": "beauty",
+      "count": 154,
+      "mean": 25.487207792207794,
+      "sum": 3925.03,
+      "share": 15.6,
+      "vs_overall": -6.1
+    }
+  ],
+  "retail_overview": {
+    "lines": 1067371,
+    "min_ts": "2009-12-01 07:45:00",
+    "max_ts": "2011-12-09 12:50:00",
+    "cancellations": 19494.0,
+    "guest_lines": 243007.0
+  },
+  "retail_repeat": {
+    "customers": 5878,
+    "repeat_customers": 4255.0,
+    "repeat_pct": 72.39,
+    "revenue": 17743429.0
+  },
+  "retail_buckets": [
+    {
+      "bucket": "1",
+      "customers": 1623,
+      "cust_share": 27.61,
+      "revenue": 568174.0,
+      "rev_share": 3.2
+    },
+    {
+      "bucket": "2",
+      "customers": 944,
+      "cust_share": 16.06,
+      "revenue": 823038.0,
+      "rev_share": 4.64
+    },
+    {
+      "bucket": "3-5",
+      "customers": 1510,
+      "cust_share": 25.69,
+      "revenue": 2125638.0,
+      "rev_share": 11.98
+    },
+    {
+      "bucket": "6-10",
+      "customers": 925,
+      "cust_share": 15.74,
+      "revenue": 2662732.0,
+      "rev_share": 15.01
+    },
+    {
+      "bucket": "11+",
+      "customers": 876,
+      "cust_share": 14.9,
+      "revenue": 11563848.0,
+      "rev_share": 65.17
+    }
+  ],
+  "retail_concentration": {
+    "top_decile_pct": 63.93,
+    "top_15_pct": 71.63,
+    "top_20_pct": 77.26
+  },
+  "retail_cancel_rev": {
+    "cancel_rev": -1526668.0,
+    "gross_rev": 20813918.0
+  },
+  "truth_check": {
+    "funnel_cart_to_checkout_drop_pct": 77.79,
+    "funnel_view_to_cart_drop_pct": 54.91,
+    "d1_overall": 19.48,
+    "d30_overall": 4.18,
+    "repeat_rate_pct": 3.46,
+    "ab_control_pct": 3.77,
+    "ab_treatment_pct": 5.18,
+    "retail_repeat_pct": 72.39,
+    "retail_top_15_pct": 71.63
+  }
+}

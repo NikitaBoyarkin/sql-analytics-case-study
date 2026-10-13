@@ -1,6 +1,6 @@
 # SQL Analytics Case Study
 
-> 25 DuckDB SQL cases + 1 real-data case: the funnel drops **54%** at cart→checkout, D1→D30 retention falls **21%→5%**, and repeat buyers are just **3.5%**.
+> 25 DuckDB SQL cases + 1 real-data case: the funnel drops **78%** at cart→checkout (the 54% drop is the earlier view→cart step), D1→D30 retention falls **~20%→~4%**, and repeat buyers are just **3.5%**.
 
 ## Navigation
 - 🌐 [Portfolio site](https://nikitaboyarkin.github.io)
@@ -38,10 +38,10 @@ every headline number pinned to the database by tests.
 
 ## Result
 
-- **54%** — funnel drop at add-to-cart → checkout; the single biggest leak.
-- **21% → 5%** — D1 → D30 retention; the leak is the onboarding window.
+- **78%** — funnel drop at add-to-cart → checkout (the single biggest leak; the earlier view_item→add_to_cart step drops 55%).
+- **19.5% → 4.2%** — D1 → D30 retention (5.0% on mature cohorts); the leak is the onboarding window.
 - **3.5%** — repeat buyers (896 buyers, 31 repeat) — a one-and-done purchase engine.
-- **4.9% vs 3.8%** (z = 4.8, p < 0.01) — A/B treatment lift, significant.
+- **5.18% vs 3.77%** (z = 4.81, p < 0.01) — A/B treatment lift, significant.
 - **72.4% vs 3.5%** — the same query on real data (top 15% = 65% of revenue) flips the synthetic conclusion.
 
 A take-home–style SQL analytics portfolio: 25 end-to-end case studies on a
@@ -55,15 +55,15 @@ charts** (`reports/index.html`).
 
 ## Three findings
 
-> 1. The funnel drops **54%** at add-to-cart → checkout — 54% of carts never proceed.
-> 2. Retention falls off a cliff: D1 **~21%** → D30 **~5%** — the leak is the onboarding window.
+> 1. The funnel drops **78%** at add-to-cart → checkout — 78% of carts never proceed (the 54% figure is the view→cart drop).
+> 2. Retention falls off a cliff: D1 **~19.5%** → D30 **~4%** — the leak is the onboarding window.
 > 3. Only **3.5%** of buyers ever repeat — a one-and-done purchase engine.
 
 **Resume / LinkedIn one-liner**
 
 ```text
 SQL Analytics Case Study — 25 cases on DuckDB (live report + repo)
-Funnel drop 54% at cart→checkout · D1→D30 retention 21%→5% · repeat rate 3.5%
+Funnel drop 78% at cart→checkout · D1→D30 retention 19.5%→4.2% · repeat rate 3.5%
 25 deterministic cases, golden-answer tests, CI, dbt model layer.
 ```
 
@@ -230,12 +230,13 @@ cd dbt && uv run dbt build --profiles-dir .
 
 ## Interview talking points
 
-1. **Funnel:** the biggest drop is add-to-cart → checkout (54% of carts never
-   proceed). That is where instrumentation and UX effort should go first.
+1. **Funnel:** the biggest drop is add-to-cart → checkout (78% of carts never
+   proceed; the 54% drop is the earlier view_item→add_to_cart step). That is
+   where instrumentation and UX effort should go first.
 2. **Retention:** D1 ~19–21% is stable, but collapses to ~5% by D30 — the leak is
    in the onboarding window, not long-term engagement.
-3. **A/B:** treatment converts higher (4.9% vs 3.8%, +1.1pp) and the lift is
-   significant (z = 4.8, p < 0.01). Always state the analysis unit: user-level
+3. **A/B:** treatment converts higher (5.18% vs 3.77%, +1.41pp) and the lift is
+   significant (z = 4.81, p < 0.01). Always state the analysis unit: user-level
    conversion (~4–5%) differs from session-level (~1%, case 01).
 4. **Monetization:** referral out-earns its user share (repeat purchases), while
    paid_search is one-and-done — a signal for channel strategy.
