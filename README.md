@@ -7,6 +7,8 @@
 - 🏦 [Flagship case: Volta neobank](https://github.com/NikitaBoyarkin/volta-banking)
 - 🧪 Related: [sql-analytics-case-study](https://github.com/NikitaBoyarkin/sql-analytics-case-study) · [churn-prediction](https://github.com/NikitaBoyarkin/churn-prediction) · [rfm-analysis-of-bank-clients](https://github.com/NikitaBoyarkin/rfm-analysis-of-bank-clients)
 
+**▶ [Diagram: DuckDB medallion: raw → staging → marts → readouts](docs/diagrams/sql-analytics.html)** — opens in a browser, no install, no build
+
 **On this page:** [Situation](#situation) · [Task](#task) · [Actions](#actions) · [Result](#result) · [Three findings](#three-findings) · [Topics covered](#topics-covered) · [Quick start](#quick-start) · [dbt model layer](#dbt-model-layer) · [Layout](#layout)
 
 ## Situation
