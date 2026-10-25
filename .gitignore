@@ -9,6 +9,6 @@ data/realdata/raw/
 .pytest_cache/
 dist/
 reports/
-dbt/target/
-dbt/logs/
+target/
+logs/
 dbt/output_data/*.csv
