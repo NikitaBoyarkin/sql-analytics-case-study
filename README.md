@@ -159,9 +159,8 @@ cases. It re-runs the repeat-purchase / concentration pattern and finds the
 ```bash
 # Python >=3.10. Dependencies: duckdb, pandas, numpy, matplotlib (pytest for tests).
 uv sync --extra dev                    # install everything once
-uv run python data/generate_data.py    # build data/analytics.duckdb
 uv run python run.py                   # list cases
-uv run python run.py 1                 # run a case
+uv run python run.py 1                 # run a case (builds the DB on first run)
 uv run python run.py 9 --limit 20      # run with a row limit
 uv run python scripts/report.py        # render reports/index.html (charts + all cases)
 ```
@@ -176,7 +175,9 @@ uv run --extra dev pytest -q
 ```
 
 The runner prints the case's question, executes the SQL against
-`data/analytics.duckdb`, and renders the result as a table. The report script
+`data/analytics.duckdb`, and renders the result as a table. That 20 MB database
+is not committed: the runner generates it on demand (seed=42) the first time it
+is missing, so a fresh clone needs no separate build step. The report script
 renders every case as a chart + table in one shareable HTML file.
 
 ## dbt model layer

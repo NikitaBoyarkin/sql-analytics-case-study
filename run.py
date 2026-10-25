@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import pathlib
+import subprocess
 import sys
 
 import duckdb
@@ -23,6 +24,13 @@ def list_cases() -> list[pathlib.Path]:
     return sorted(CASES.glob("*.sql"))
 
 
+def ensure_db() -> None:
+    if DB.exists():
+        return
+    print(f"{DB.relative_to(ROOT)} missing — building it (seed=42)...", file=sys.stderr)
+    subprocess.run([sys.executable, str(ROOT / "data" / "generate_data.py")], check=True)
+
+
 def run_case(num: int, limit: int | None = None) -> None:
     matches = [p for p in list_cases() if int(p.name.split("_")[0]) == num]
     if not matches:
@@ -31,12 +39,7 @@ def run_case(num: int, limit: int | None = None) -> None:
             print(f"  {p.name}", file=sys.stderr)
         sys.exit(1)
     path = matches[0]
-    if not DB.exists():
-        print(
-            "Database missing. Run: uv run python data/generate_data.py",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    ensure_db()
 
     sql = path.read_text()
     print(f"\n=== {path.name} ===\n")
