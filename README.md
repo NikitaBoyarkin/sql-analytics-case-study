@@ -44,7 +44,7 @@ every headline number pinned to the database by tests.
 - **19.5% → 4.2%** — D1 → D30 retention (5.0% on mature cohorts); the leak is the onboarding window.
 - **3.5%** — repeat buyers (896 buyers, 31 repeat) — a one-and-done purchase engine.
 - **5.18% vs 3.77%** (z = 4.81, p < 0.01) — A/B treatment lift, significant.
-- **72.4% vs 3.5%** — the same query on real data (top 15% = 65% of revenue) flips the synthetic conclusion.
+- **72.4% vs 3.5%** — the same query on real data (customers with 11+ orders, 14.9% of the base, carry 65% of revenue) flips the synthetic conclusion.
 
 A take-home–style SQL analytics portfolio: 25 end-to-end case studies on a
 synthetic product dataset, plus one **real-data** case (UCI Online Retail II) —
@@ -151,8 +151,8 @@ scaffolding. The cleaned table ships as a committed 4.5 MB parquet
 ([`data/realdata/`](data/realdata/README.md)), loaded into the same DuckDB by the
 generator, so the case runs offline against the same database as the synthetic
 cases. It re-runs the repeat-purchase / concentration pattern and finds the
-*inverse* of the synthetic engine: 72.4% of customers repeat and the top 15%
-drive 65% of revenue.
+*inverse* of the synthetic engine: 72.4% of customers repeat, and customers with
+11+ orders — 14.9% of the base — carry 65% of revenue.
 
 ## Quick start
 
@@ -227,8 +227,9 @@ cd dbt && uv run dbt build --profiles-dir .
   on a separate RNG stream; the seed-42 numbers in cases 1–20 never move.
 - **Real data, same SQL (case 26)** — the repeat-purchase/concentration pattern
   re-run on 1M+ real invoice lines (UCI Online Retail II, CC BY 4.0) flips the
-  synthetic conclusion: 72.4% repeat vs 3.5%, top 15% = 65% of revenue vs no
-  whale tier. The pattern transfers; the business answer is data-dependent.
+  synthetic conclusion: 72.4% repeat vs 3.5%, and an 11+-order tier holding
+  65% of revenue (14.9% of customers) vs no whale tier. The pattern transfers;
+  the business answer is data-dependent.
 
 ## Interview talking points
 
@@ -248,9 +249,9 @@ cd dbt && uv run dbt build --profiles-dir .
    — this is a one-and-done purchase engine. When asked "what would you work on
    next", the repeat lever is the honest answer.
 7. **Real data (case 26):** the identical repeat/concentration query on UCI
-   Online Retail II gives the opposite answer — 72.4% repeat, top 15% = 65% of
-   revenue. The transferable asset is the pattern + the discipline, not the
-   synthetic number.
+   Online Retail II gives the opposite answer — 72.4% repeat, and customers
+   with 11+ orders (14.9% of the base) carry 65% of revenue. The transferable
+   asset is the pattern + the discipline, not the synthetic number.
 
 ## Trade-offs & design notes
 
