@@ -1,3 +1,15 @@
+<!-- ascii-art: pyfiglet + ascii-bin (CC0) -->
+```text
+ _ _.|___.._  _.| _|_o _ ____ _. _ _____|_    _|
+_>(_|| (_|| |(_||\/|_|(__> (_(_|_>(/__> |_|_|(_|\/
+    |            /                              /
+
+╭──────────────────────────────────────────────────────────────────────────╮
+│ A take-home–style SQL portfolio has to look like real production anal... │
+╰──────────────────────────────────────────────────────────────────────────╯
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
 # SQL Analytics Case Study
 
 > 25 DuckDB SQL cases + 1 real-data case: the funnel drops **78%** at cart→checkout (the 54% drop is the earlier view→cart step), D1→D30 retention falls **~20%→~4%**, and repeat buyers are just **3.5%**.
