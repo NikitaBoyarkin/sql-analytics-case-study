@@ -208,9 +208,9 @@ def test_19_repeat_purchase():
 
 
 def test_20_rfm():
-    df = _run("20_rfm.sql")
+    df = _run("20_rfm.sql").set_index("segment")
     assert len(df) == 7
-    assert set(df["segment"]) == {
+    assert set(df.index) == {
         "Champions",
         "Loyal",
         "Regular",
@@ -221,8 +221,14 @@ def test_20_rfm():
     }
     assert int(df["buyers"].sum()) == 896
     assert df["pct_of_revenue"].sum() > 99
-    # frequency barely discriminates (repeat rate ~3.5%) -> whale tier is tiny
-    assert int(df.loc[df.segment == "Big Spenders", "buyers"].iloc[0]) < 30
+    # every repeat buyer lands in exactly one segment (31 buyers with 2+ orders)
+    assert int(df["repeat_buyers"].sum()) == 31
+    # labels must actually read the spend axis: high-spend segments beat their
+    # buyer share on revenue, low-spend ones trail it
+    for seg in ("Champions", "Big Spenders"):
+        assert df.loc[seg, "pct_of_revenue"] > df.loc[seg, "pct_of_buyers"]
+    for seg in ("Hibernating", "Promising"):
+        assert df.loc[seg, "pct_of_revenue"] < df.loc[seg, "pct_of_buyers"]
 
 
 def test_21_subscription_churn():

@@ -23,6 +23,15 @@ def _run(name: str) -> pd.DataFrame:
         con.close()
 
 
+def _run_threads(name: str, threads: int) -> pd.DataFrame:
+    con = duckdb.connect(str(DB), read_only=True)
+    try:
+        con.execute(f"SET threads={threads}")
+        return con.execute((CASES / name).read_text()).fetchdf()
+    finally:
+        con.close()
+
+
 def test_01_funnel_golden():
     df = _run("01_funnel_conversion.sql").set_index("event_name")
     assert int(df.loc["app_open", "sessions"]) == 80_000
@@ -132,8 +141,21 @@ def test_19_repeat_purchase_golden():
 def test_20_rfm_golden():
     df = _run("20_rfm.sql")
     assert int(df["buyers"].sum()) == 896
-    assert int(df.loc[df.segment == "Champions", "buyers"].iloc[0]) == 166
-    assert int(df.loc[df.segment == "Big Spenders", "buyers"].iloc[0]) == 11
+    assert int(df["repeat_buyers"].sum()) == 31
+    assert int(df.loc[df.segment == "Champions", "buyers"].iloc[0]) == 136
+    assert int(df.loc[df.segment == "Big Spenders", "buyers"].iloc[0]) == 222
+    assert float(df.loc[df.segment == "Big Spenders", "pct_of_revenue"].iloc[0]) == 37.5
+
+
+def test_20_rfm_is_thread_deterministic():
+    # NTILE over a heavily-tied column is only defined up to tie order: with
+    # `ORDER BY frequency` alone the 865-buyer tie at frequency = 1 was split by
+    # physical row order, so the same fixture answered 10 or 11 for Big Spenders
+    # depending on DuckDB's thread count (and the machine). The window ORDER BYs
+    # now carry a total tie-break, so the result must not move at all.
+    one = _run_threads("20_rfm.sql", 1)
+    four = _run_threads("20_rfm.sql", 4)
+    pd.testing.assert_frame_equal(one, four)
 
 
 def test_21_churn_golden():

@@ -154,9 +154,11 @@ META: dict[int, dict] = {
     },
     20: {
         "title": "RFM segmentation (NTILE)",
-        "signal": "Revenue splits ~evenly across segments; Big Spenders are just 1.2%. The "
-        "frequency axis barely discriminates because repeat rate is 3.5% — RFM here is "
-        "mostly a recency story.",
+        "signal": "The spend axis carries it: the two high-spend segments are 40% of "
+        "buyers but 61% of revenue, and the larger one has not bought for four "
+        "months — that is the reactivation list, and the only place repeat "
+        "behaviour concentrates (9.5% vs 3.5%). Frequency cannot be quintiled: "
+        "865 of 896 buyers ordered once, so it is scored by value, not NTILE.",
     },
     21: {
         "title": "Subscription churn (logo & MRR)",

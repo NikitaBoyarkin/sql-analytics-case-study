@@ -142,7 +142,7 @@ and an A/B test with statistics written in pure SQL.
 | 17 | Weekly lifecycle (new/returning/resurrecting/dormant) | state transitions, `LAG`/`LEAD` |
 | 18 | Cohort revenue retention (triangle) | months-since-signup self-join, % of period-0 |
 | 19 | Repeat purchase & time between orders | `LAG` within user, repeat-rate |
-| 20 | RFM segmentation | `NTILE` quintiles, segment-score rules |
+| 20 | RFM segmentation | `NTILE` quintiles with total-order tie-breaks, value-based frequency score |
 | 21 | Subscription churn (logo & MRR) | monthly churn, `FILTER` aggregates |
 | 22 | Refunds & net revenue | left join, gross-vs-net by month |
 | 23 | Pareto / revenue concentration | `NTILE(10)`, cumulative-share curve |
@@ -246,10 +246,13 @@ cd dbt && uv run dbt build --profiles-dir .
 - **Sessionization with validation** (`cases/16_sessionization.sql`) — derives
   sessions from raw timestamps with a 30-min inactivity gap and proves the
   derivation against the pre-assigned ids (99.6% fidelity).
-- **An honest business finding** — cases 19–20 reveal a 3.5% repeat rate and an
-  even revenue distribution: the dataset is a one-and-done purchase engine, and
-  RFM degenerates to a recency story. Saying "the repeat lever is the gap" is
-  the interview answer, not the chart.
+- **An honest business finding** — cases 19–20 reveal a 3.5% repeat rate, so the
+  dataset is a one-and-done purchase engine. In RFM that kills the frequency
+  axis outright (865 of 896 buyers ordered once), and the case says so instead
+  of quintiling it: segmentation is recency × spend, and the reactivation list
+  (high spend, four months quiet) is where what little repeat behaviour exists
+  actually concentrates. Saying "the repeat lever is the gap" is the interview
+  answer, not the chart.
 - **Additive data without breaking goldens** — cases 21–25 (churn, refunds,
   Pareto, anomaly detection, upsell conversion) run on two new tables generated
   on a separate RNG stream; the seed-42 numbers in cases 1–20 never move.

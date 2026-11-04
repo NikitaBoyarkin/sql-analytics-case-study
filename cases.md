@@ -237,15 +237,22 @@ customers, growth is entirely acquisition-dependent.
 **Q:** Which buyer segments deserve the most attention, and where does revenue
 concentrate?
 
-**A:** `NTILE(5)` on recency (inverted), frequency and monetary → 1–5 scores,
-then label rules. Segments split buyers nearly evenly (Champions 18.5%, Loyal
-20.2%, Regular 20.0%, At Risk 19.6%, Hibernating 19.2%); Big Spenders and
-Promising are ~1.2% each. Revenue tracks buyer share ~1:1 — no whale tier.
+**A:** `NTILE(5)` quintiles on recency (5 = most recent) and lifetime spend
+(5 = highest), both ordered with a total tie-break; frequency is scored by value
+(1 order = 1, 2 = 4, 3+ = 5) rather than quintiles. Labels read the
+recency × spend grid. On the seed-42 fixture: Big Spenders 24.8% of buyers /
+37.5% of revenue (117 days since last order, $42.50 lifetime), Champions 15.2% /
+23.3% (32 days, $43.14), Hibernating 22.7% / 12.2%, Promising 17.4% / 9.4%,
+At Risk 8.4% / 7.4%, Loyal 7.4% / 6.5%, Regular 4.2% / 3.7%.
 
-**Signal:** the frequency axis barely discriminates because repeat rate is ~3.5%
-(case 19) — RFM here is mostly a *recency* story, so "Loyal" vs "At Risk" is
-about last-purchase timing, not loyalty. Even revenue distribution: there is no
-heavy-user backbone to double down on.
+**Signal:** the spend axis carries the case. The two high-spend segments are 40%
+of buyers and 61% of revenue, and the larger of them — Big Spenders — has not
+bought for four months: that is the reactivation list, and it is also where
+repeat behaviour concentrates (21 of 222 repeat, 9.5% vs the 3.5% baseline).
+Frequency cannot be quintiled at all: 865 of 896 buyers ordered exactly once, so
+a fifth of the base would be sorted into a bucket by tie-break alone — which is
+exactly what the previous version of this query did, and why its segment sizes
+were not reproducible.
 
 ## 21 · Subscription churn (logo & MRR)
 
