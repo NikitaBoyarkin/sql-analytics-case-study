@@ -12,7 +12,9 @@ _>(_|| (_|| |(_||\/|_|(__> (_(_|_>(/__> |_|_|(_|\/
 
 # SQL Analytics Case Study
 
-> 25 DuckDB SQL cases + 1 real-data case: the funnel drops **78%** at cart→checkout (the 54% drop is the earlier view→cart step), D1→D30 retention falls **~20%→~4%**, and repeat buyers are just **3.5%**.
+> 25 DuckDB SQL cases + 1 real-data case: payment is the sharpest funnel cliff (**85.9%** of checkouts never complete, and 78% of carts stop before checkout), D1→D30 retention falls **~20%→~5%**, and repeat buyers are just **3.5%**.
+
+**Public link:** [демо](https://nikitaboyarkin.github.io/demos/sql/index.html) · [кейс](https://nikitaboyarkin.github.io/projects/sql/) · [исходники](https://github.com/NikitaBoyarkin/sql-analytics-case-study)
 
 ## Navigation
 - 🌐 [Portfolio site](https://nikitaboyarkin.github.io)
@@ -29,6 +31,13 @@ A take-home–style SQL portfolio has to look like real production analysis:
 reproducible data, defensible numbers, and a business read at the end of every
 query. Most portfolios stop at the query; this one has to survive being re-run
 and reviewed without a server, credentials, or hand-holding.
+
+## Dataset
+
+Two sources. Cases 1–25 run on synthetic data from `data/generate_data.py` (seed = 42, schema in
+`data/schema.sql`); case 26 runs on real invoice lines — the **UCI Online Retail II** dataset
+(CC BY 4.0), shipped as a committed parquet in `data/realdata/`. Nothing is downloaded at run
+time: `uv run python run.py 1` builds the DuckDB file on first run.
 
 ## Task
 
@@ -52,11 +61,17 @@ every headline number pinned to the database by tests.
 
 ## Result
 
-- **78%** — funnel drop at add-to-cart → checkout (the single biggest leak; the earlier view_item→add_to_cart step drops 55%).
-- **19.5% → 4.2%** — D1 → D30 retention (5.0% on mature cohorts); the leak is the onboarding window.
+- **85.9%** — checkout → purchase drop: payment is the sharpest single cliff (77.8% of carts also stop before checkout; view→cart is the largest *absolute* loss at 36,098 sessions).
+- **19.6% → 5.0%** — D1 → D30 retention on fully observed cohorts; the leak is the onboarding window.
 - **3.5%** — repeat buyers (896 buyers, 31 repeat) — a one-and-done purchase engine.
 - **5.18% vs 3.77%** (z = 4.81, p < 0.01) — A/B treatment lift, significant.
 - **72.4% vs 3.5%** — the same query on real data (customers with 11+ orders, 14.9% of the base, carry 65% of revenue) flips the synthetic conclusion.
+
+![Session funnel: bar chart of distinct sessions per step](reports/eda/figures/fig1_funnel_steps.png)
+
+*Session-level funnel: payment is the sharpest cliff (−86% of checkouts never complete),
+then add_to_cart → checkout (−78%); view_item → add_to_cart is the largest *absolute* loss
+(36,098 sessions). Session counts per step sit above the bars.*
 
 A take-home–style SQL analytics portfolio: 25 end-to-end case studies on a
 synthetic product dataset, plus one **real-data** case (UCI Online Retail II) —
@@ -69,15 +84,15 @@ charts** (`reports/index.html`).
 
 ## Three findings
 
-> 1. The funnel drops **78%** at add-to-cart → checkout — 78% of carts never proceed (the 54% figure is the view→cart drop).
-> 2. Retention falls off a cliff: D1 **~19.5%** → D30 **~4%** — the leak is the onboarding window.
+> 1. The funnel's sharpest cliff is payment — **85.9%** of checkouts never complete; 77.8% of carts never reach checkout either.
+> 2. Retention falls off a cliff: D1 **~19.6%** → D30 **~5.0%** on fully observed cohorts — the leak is the onboarding window.
 > 3. Only **3.5%** of buyers ever repeat — a one-and-done purchase engine.
 
 **Resume / LinkedIn one-liner**
 
 ```text
 SQL Analytics Case Study — 25 cases on DuckDB (live report + repo)
-Funnel drop 78% at cart→checkout · D1→D30 retention 19.5%→4.2% · repeat rate 3.5%
+Payment step drops 85.9% (78% of carts stop before checkout) · D1→D30 retention 19.6%→5.0% · repeat rate 3.5%
 25 deterministic cases, golden-answer tests, CI, dbt model layer.
 ```
 
@@ -246,9 +261,10 @@ cd dbt && uv run dbt build --profiles-dir .
 
 ## Interview talking points
 
-1. **Funnel:** the biggest drop is add-to-cart → checkout (78% of carts never
-   proceed; the 54% drop is the earlier view_item→add_to_cart step). That is
-   where instrumentation and UX effort should go first.
+1. **Funnel:** payment is the sharpest cliff — 85.9% of checkouts never complete.
+   77.8% of carts also stop before checkout, and view→cart is the biggest
+   *absolute* loss (36,098 sessions). Three different leaks: instrument checkout
+   first, then cart recovery.
 2. **Retention:** D1 ~19–21% is stable, but collapses to ~5% by D30 — the leak is
    in the onboarding window, not long-term engagement.
 3. **A/B:** treatment converts higher (5.18% vs 3.77%, +1.41pp) and the lift is

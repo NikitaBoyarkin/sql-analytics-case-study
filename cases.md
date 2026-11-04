@@ -14,9 +14,10 @@ step-to-step and overall conversion?
 29,641 added to cart (45.1% of viewers); 6,584 reached checkout (22.2% of
 carts); 928 purchased (14.1% of checkouts, 1.16% overall).
 
-**Signal:** the sharpest drop is add-to-cart → checkout (78% of carts never
-proceed; the earlier view_item → add_to_cart step drops 55%). That is the
-highest-leverage step to instrument and fix.
+**Signal:** the sharpest drop is checkout → purchase — 85.9% of checkouts never
+complete, so payment is where the funnel leaks hardest. One step earlier,
+77.8% of carts never reach checkout, and view_item → add_to_cart is the largest
+loss in absolute sessions (36,098). Instrument payment first, then cart recovery.
 
 ## 02 · N-day retention by cohort
 

@@ -30,11 +30,18 @@ jobs:
         run: uv run --extra dev pytest -q
       - name: Render report
         run: uv run python scripts/report.py
+      - name: Render EDA figures
+        run: uv run python reports/eda/scripts/plot_figures.py
       - name: Upload report artifact
         uses: actions/upload-artifact@v4
         with:
           name: analytics-report
           path: reports/index.html
+      - name: Upload EDA figures
+        uses: actions/upload-artifact@v4
+        with:
+          name: eda-figures
+          path: reports/eda/figures/
 
   dbt:
     runs-on: ubuntu-latest

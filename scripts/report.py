@@ -25,6 +25,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+plt.rcParams.update(
+    {
+        # generic family last: without it a missing face turns into tofu boxes
+        "font.family": ["DejaVu Sans", "sans-serif"],
+        "axes.unicode_minus": False,
+    }
+)
+
 ROOT = pathlib.Path(__file__).parent.parent
 CASES = ROOT / "cases"
 DB = ROOT / "data" / "analytics.duckdb"
@@ -42,8 +50,9 @@ ACCENT4 = "#fbbf24"
 META: dict[int, dict] = {
     1: {
         "title": "Funnel conversion",
-        "signal": "The sharpest drop is add-to-cart -> checkout (54% of carts never "
-        "proceed). That is the highest-leverage step to instrument and fix.",
+        "signal": "Payment is the sharpest cliff: 85.9% of checkouts never complete. "
+        "Cart->checkout is the next one (77.8% of carts stop there), and view->cart "
+        "costs the most sessions outright (36,098). Instrument checkout first.",
     },
     2: {
         "title": "N-day retention by cohort",
@@ -57,8 +66,10 @@ META: dict[int, dict] = {
     },
     4: {
         "title": "DAU / MAU / stickiness",
-        "signal": "Stickiness is a frequency metric, not reach. ~40% means the average "
-        "user is active ~12 days/month.",
+        "signal": "Stickiness (DAU/MAU) settles at ~7% once the 28-day window is full — "
+        "a low-frequency product. The first 28 days are masked: MAU is still "
+        "accumulating there, so the ratio starts at 100% by construction, not by "
+        "engagement.",
     },
     5: {
         "title": "LTV by cohort",
@@ -175,7 +186,7 @@ META: dict[int, dict] = {
     26: {
         "title": "Real data — repeat purchase & concentration",
         "signal": "On the real UCI Online Retail II data the pattern inverts: 72.4% of "
-        "customers repeat and the top 15% (11+ orders) drive 65% of revenue, while "
+        "customers repeat and 14.9% of them (11+ orders) drive 65% of revenue, while "
         "one-time buyers are 28% of customers but 3% of revenue. Same SQL, opposite "
         "business conclusion — the synthetic engine is a one-and-done anomaly.",
     },
@@ -214,14 +225,21 @@ def _style(ax) -> None:
 
 
 def _fig(w=8, h=3.4):
-    fig, ax = plt.subplots(figsize=(w, h), dpi=130)
+    fig, ax = plt.subplots(figsize=(w, h), dpi=130, layout="constrained")
     fig.patch.set_facecolor(BG)
     return fig, ax
 
 
 def _b64(fig) -> str:
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", bbox_inches="tight", facecolor=fig.get_facecolor())
+    fig.savefig(
+        buf,
+        format="png",
+        bbox_inches="tight",
+        facecolor=fig.get_facecolor(),
+        # drop the matplotlib version stamp so the PNGs are byte-stable
+        metadata={"Software": None},
+    )
     plt.close(fig)
     return base64.b64encode(buf.getvalue()).decode()
 
@@ -285,7 +303,14 @@ def chart_04(df: pd.DataFrame) -> str:
     ax.set_ylabel("active users")
     ax.legend(loc="upper left", fontsize=7, facecolor=PANEL, labelcolor=TXT)
     ax2 = ax.twinx()
-    ax2.plot(df["d"], df["stickiness_pct"], color=ACCENT3, lw=1.0, label="stickiness %")
+    # Stickiness is undefined until a full trailing 28-day window exists: before
+    # that MAU is still filling up, so the ratio starts at 100% and falls by
+    # construction. Mask the warm-up instead of drawing a cliff that isn't one.
+    warmup_end = df["d"].min() + pd.Timedelta(days=28)
+    sticky = df["stickiness_pct"].where(df["d"] >= warmup_end)
+    ax2.plot(
+        df["d"], sticky, color=ACCENT3, lw=1.0, label="stickiness % (post-warm-up)"
+    )
     ax2.set_ylabel("stickiness %", color=ACCENT3)
     ax2.tick_params(colors=ACCENT3, labelsize=8)
     _style(ax)
@@ -821,7 +846,7 @@ def build_html(con: duckdb.DuckDBPyConnection, cases: list[pathlib.Path]) -> str
     exec_insights = [
         (
             "Funnel",
-            "Biggest drop is add-to-cart → checkout (54% of carts never proceed) — the highest-leverage step to fix.",
+            "Payment is the sharpest cliff: 85.9% of checkouts never complete — the highest-leverage step to fix. 77.8% of carts also stop before checkout, and view→cart is the largest absolute loss (36,098 sessions).",
         ),
         (
             "Retention",
@@ -829,7 +854,7 @@ def build_html(con: duckdb.DuckDBPyConnection, cases: list[pathlib.Path]) -> str
         ),
         (
             "A/B test",
-            "Treatment wins on purchase conversion (4.9% vs 3.8%, +1.1pp) and the result is statistically significant (z=4.8, p<0.01).",
+            "Treatment wins on purchase conversion (5.18% vs 3.77%, +1.41pp) and the result is statistically significant (z=4.81, p<0.01).",
         ),
         (
             "Lifecycle",
@@ -847,7 +872,7 @@ def build_html(con: duckdb.DuckDBPyConnection, cases: list[pathlib.Path]) -> str
         (
             "Real data (case 26)",
             "On the real UCI Online Retail II data the picture inverts: 72.4% of "
-            "customers repeat and the top 15% (11+ orders) drive 65% of revenue — "
+            "customers repeat and 14.9% of them (11+ orders) drive 65% of revenue — "
             "unlike the synthetic one-and-done engine.",
         ),
     ]

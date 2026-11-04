@@ -30,8 +30,11 @@ def test_01_funnel_golden():
     assert int(df.loc["add_to_cart", "sessions"]) == 29_641
     assert int(df.loc["checkout", "sessions"]) == 6_584
     assert int(df.loc["purchase", "sessions"]) == 928
-    # biggest drop is add_to_cart -> checkout (the instrument-first step)
-    assert df.loc["add_to_cart", "step_pct"] > df.loc["checkout", "step_pct"]
+    # payment is the sharpest cliff: checkout -> purchase loses the largest share
+    assert df["step_pct"].idxmin() == "purchase"
+    assert df.loc["purchase", "step_pct"] < df.loc["checkout", "step_pct"]
+    # cart -> checkout is the next cliff, not the sharpest one
+    assert df.loc["checkout", "step_pct"] < df.loc["add_to_cart", "step_pct"]
 
 
 def test_02_retention_golden():
